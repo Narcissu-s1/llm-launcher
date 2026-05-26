@@ -23,7 +23,6 @@ class KVCacheParams(Vertical):
     """KV Cache 与显存参数组"""
 
     def compose(self) -> ComposeResult:
-        yield Label("KV Cache 与显存", classes="section-title")
         with Horizontal(classes="param-row"):
             yield Label("K Cache 量化", classes="param-label")
             yield Select(
@@ -81,7 +80,6 @@ class InferenceParams(Vertical):
     """推理速度参数组"""
 
     def compose(self) -> ComposeResult:
-        yield Label("推理速度", classes="section-title")
         with Horizontal(classes="param-row"):
             yield Label("线程数", classes="param-label")
             yield Input(value="-1", id="threads", placeholder="-1=自动")
@@ -124,7 +122,6 @@ class SamplingParams(Vertical):
     """采样参数组"""
 
     def compose(self) -> ComposeResult:
-        yield Label("采样参数", classes="section-title")
         with Horizontal(classes="param-row"):
             yield Label("温度", classes="param-label")
             yield Input(value="0.80", id="temp")
@@ -172,7 +169,6 @@ class ReasoningParams(Vertical):
     """思考/推理模式参数组"""
 
     def compose(self) -> ComposeResult:
-        yield Label("思考模式", classes="section-title")
         with Horizontal(classes="param-row"):
             yield Label("启用模式", classes="param-label")
             yield Select(
@@ -208,7 +204,6 @@ class MultimodalParams(Vertical):
     """多模态参数组"""
 
     def compose(self) -> ComposeResult:
-        yield Label("多模态", classes="section-title")
         with Horizontal(classes="param-row"):
             yield Label("视觉放 GPU", classes="param-label")
             yield Switch(value=True, id="mmproj_offload")
@@ -236,7 +231,6 @@ class SecurityParams(Vertical):
     """安全与访问控制参数组"""
 
     def compose(self) -> ComposeResult:
-        yield Label("安全", classes="section-title")
         with Horizontal(classes="param-row"):
             yield Label("API Key", classes="param-label")
             yield Input(value="", id="api_key", placeholder="留空不校验")

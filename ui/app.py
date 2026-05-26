@@ -101,6 +101,15 @@ ControlPanel .status-starting { color: yellow; }
 ControlPanel .status-running { color: green; }
 ControlPanel .status-crashed { color: red; }
 
+/* 折叠面板：高度由内容决定 */
+ControlPanel Collapsible {
+    height: auto;
+}
+
+ControlPanel Collapsible .collapsible-contents {
+    height: auto;
+}
+
 ControlPanel #options-row {
     height: 3;
     margin-top: 1;
