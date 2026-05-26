@@ -52,6 +52,9 @@ class KVCacheParams(Vertical):
         with Horizontal(classes="param-row"):
             yield Label("空闲 Slot 复活", classes="param-label")
             yield Switch(value=True, id="cache_idle_slots")
+        with Horizontal(classes="param-row"):
+            yield Label("Cache RAM 上限", classes="param-label")
+            yield Input(value="8192", id="cache_ram", placeholder="MiB")
 
     def collect_params(self) -> dict:
         """收集 KV Cache 参数"""
@@ -63,6 +66,7 @@ class KVCacheParams(Vertical):
             "flash_attn": self.query_one("#flash_attn", Switch).value,
             "cache_prompt": self.query_one("#cache_prompt", Switch).value,
             "cache_idle_slots": self.query_one("#cache_idle_slots", Switch).value,
+            "cache_ram": int(self.query_one("#cache_ram", Input).value or "8192"),
         }
 
     def restore_params(self, params: dict) -> None:
@@ -74,6 +78,7 @@ class KVCacheParams(Vertical):
         self.query_one("#flash_attn", Switch).value = params.get("flash_attn", False)
         self.query_one("#cache_prompt", Switch).value = params.get("cache_prompt", True)
         self.query_one("#cache_idle_slots", Switch).value = params.get("cache_idle_slots", True)
+        self.query_one("#cache_ram", Input).value = str(params.get("cache_ram", 8192))
 
 
 class InferenceParams(Vertical):
@@ -143,6 +148,9 @@ class SamplingParams(Vertical):
         with Horizontal(classes="param-row"):
             yield Label("最大生成", classes="param-label")
             yield Input(value="-1", id="n_predict", placeholder="-1=无限")
+        with Horizontal(classes="param-row"):
+            yield Label("忽略 EOS", classes="param-label")
+            yield Switch(value=False, id="ignore_eos")
 
     def collect_params(self) -> dict:
         return {
@@ -153,6 +161,7 @@ class SamplingParams(Vertical):
             "repeat_penalty": _safe_float(self.query_one("#repeat_penalty", Input).value, 1.0),
             "seed": _safe_int(self.query_one("#seed", Input).value, -1),
             "n_predict": _safe_int(self.query_one("#n_predict", Input).value, -1),
+            "ignore_eos": self.query_one("#ignore_eos", Switch).value,
         }
 
     def restore_params(self, params: dict) -> None:
@@ -163,6 +172,7 @@ class SamplingParams(Vertical):
         self.query_one("#repeat_penalty", Input).value = str(params.get("repeat_penalty", 1.0))
         self.query_one("#seed", Input).value = str(params.get("seed", -1))
         self.query_one("#n_predict", Input).value = str(params.get("n_predict", -1))
+        self.query_one("#ignore_eos", Switch).value = params.get("ignore_eos", False)
 
 
 class ReasoningParams(Vertical):

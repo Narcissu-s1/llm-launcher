@@ -32,6 +32,7 @@ DEFAULT_CONFIG = {
         "flash_attn": False,     # 启用 Flash Attention
         "cache_prompt": True,    # 缓存提示词
         "cache_idle_slots": True,# 空闲槽位可用于缓存
+        "cache_ram": 8192,       # prompt cache 内存上限 (MiB)
         # Phase 2 - 推理速度
         "threads": -1,           # 推理线程数（-1=自动）
         "threads_batch": -1,     # 批处理线程数（-1=自动）
@@ -47,6 +48,7 @@ DEFAULT_CONFIG = {
         "repeat_penalty": 1.0,   # 重复惩罚
         "seed": -1,              # 随机种子（-1=随机）
         "n_predict": -1,         # 最大生成 token 数（-1=无限）
+        "ignore_eos": False,     # 忽略结束符持续生成
         # Phase 2 - 思考模式
         "reasoning": "auto",     # 启用推理/思考模式
         "reasoning_format": "auto",  # 推理输出格式

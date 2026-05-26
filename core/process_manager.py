@@ -210,6 +210,8 @@ class ProcessSupervisor:
             cmd.append("--no-cache-prompt")
         if not params.get("cache_idle_slots", True):
             cmd.append("--no-cache-idle-slots")
+        if params.get("cache_ram", 8192) != 8192:
+            cmd.extend(["--cache-ram", str(params["cache_ram"])])
 
         # Phase 2 - 推理速度
         if params.get("threads", -1) != -1:
@@ -240,6 +242,8 @@ class ProcessSupervisor:
             cmd.extend(["-s", str(params["seed"])])
         if params.get("n_predict", -1) != -1:
             cmd.extend(["-n", str(params["n_predict"])])
+        if params.get("ignore_eos", False):
+            cmd.append("--ignore-eos")
 
         # Phase 2 - 思考模式
         if params.get("reasoning", "auto") != "auto":
