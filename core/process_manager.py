@@ -305,7 +305,7 @@ class ProcessSupervisor:
 
                 # 检测启动完成标志
                 if self._status == ProcessStatus.STARTING and "server is listening" in line.lower():
-                    self._set_status(ProcessStatus.RUNNING)
+                    self._set_status(ProcessStatus.RUNNING, pid=self._pid)
 
             # 检测子进程是否已退出
             poll_result = self._process.poll()

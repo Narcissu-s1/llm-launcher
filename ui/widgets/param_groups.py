@@ -1,7 +1,7 @@
 """高级参数分组 Widget"""
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical
 from textual.widgets import Input, Label, Select, Switch
 
 
@@ -19,7 +19,7 @@ def _safe_float(value: str, default: float) -> float:
         return default
 
 
-class KVCacheParams(Horizontal):
+class KVCacheParams(Vertical):
     """KV Cache 与显存参数组"""
 
     def compose(self) -> ComposeResult:
@@ -77,7 +77,7 @@ class KVCacheParams(Horizontal):
         self.query_one("#cache_idle_slots", Switch).value = params.get("cache_idle_slots", True)
 
 
-class InferenceParams(Horizontal):
+class InferenceParams(Vertical):
     """推理速度参数组"""
 
     def compose(self) -> ComposeResult:
@@ -120,7 +120,7 @@ class InferenceParams(Horizontal):
         self.query_one("#no_warmup", Switch).value = params.get("no_warmup", False)
 
 
-class SamplingParams(Horizontal):
+class SamplingParams(Vertical):
     """采样参数组"""
 
     def compose(self) -> ComposeResult:
@@ -168,7 +168,7 @@ class SamplingParams(Horizontal):
         self.query_one("#n_predict", Input).value = str(params.get("n_predict", -1))
 
 
-class ReasoningParams(Horizontal):
+class ReasoningParams(Vertical):
     """思考/推理模式参数组"""
 
     def compose(self) -> ComposeResult:
@@ -204,7 +204,7 @@ class ReasoningParams(Horizontal):
         self.query_one("#reasoning_budget", Input).value = str(params.get("reasoning_budget", -1))
 
 
-class MultimodalParams(Horizontal):
+class MultimodalParams(Vertical):
     """多模态参数组"""
 
     def compose(self) -> ComposeResult:
@@ -232,7 +232,7 @@ class MultimodalParams(Horizontal):
         self.query_one("#image_max_tokens", Input).value = str(params.get("image_max_tokens", 0))
 
 
-class SecurityParams(Horizontal):
+class SecurityParams(Vertical):
     """安全与访问控制参数组"""
 
     def compose(self) -> ComposeResult:
