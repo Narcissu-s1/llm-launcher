@@ -1,8 +1,10 @@
 """运行时监控面板：GPU/内存/请求状态"""
 
+import json
 import logging
 import subprocess
 import threading
+import urllib.request
 from typing import Any
 
 import psutil
@@ -58,6 +60,8 @@ class MonitorPanel(Horizontal):
     def stop_monitoring(self) -> None:
         """停止监控轮询"""
         self._running = False
+        if self._thread is not None:
+            self._thread.join(timeout=3)
 
     def _poll_loop(self) -> None:
         """后台轮询线程"""
@@ -75,10 +79,13 @@ class MonitorPanel(Horizontal):
         slots_text = self._collect_slots()
 
         def update():
-            if gpu_text:
-                self.query_one("#mon_gpu", Static).update(gpu_text)
-            self.query_one("#mon_ram", Static).update(ram_text)
-            self.query_one("#mon_slots", Static).update(slots_text)
+            try:
+                if gpu_text:
+                    self.query_one("#mon_gpu", Static).update(gpu_text)
+                self.query_one("#mon_ram", Static).update(ram_text)
+                self.query_one("#mon_slots", Static).update(slots_text)
+            except Exception:
+                logger.debug("监控更新失败（控件可能已销毁）")
 
         self.app.call_from_thread(update)
 
@@ -113,9 +120,6 @@ class MonitorPanel(Horizontal):
 
     def _collect_slots(self) -> str:
         """采集 Slots 信息"""
-        import urllib.request
-        import json
-
         try:
             url = f"http://127.0.0.1:{self._port}/slots"
             req = urllib.request.Request(url, method="GET")
