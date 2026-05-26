@@ -370,6 +370,8 @@ class LlamaLauncherApp(App):
                 panel.query_one("#mmproj_path", Input).value = path
 
         self.push_screen(FileBrowser(start_dir=last_dir), on_selected)
+
+    def _handle_pick_dir(self) -> None:
         """打开目录选择器选择 llama.cpp 目录"""
         panel = self.query_one("#control", ControlPanel)
         current = panel.query_one("#llama_cpp_dir", Input).value or "."
@@ -396,15 +398,15 @@ class LlamaLauncherApp(App):
     def _on_status_changed(self, **data) -> None:
         """响应进程状态变化事件"""
         status = data.get("status", "stopped")
-        panel = self.query_one("#control", ControlPanel)
-        monitor = self.query_one("#monitor", MonitorPanel)
 
-        self._safe_update(panel.update_status, status)
-
-        log_panel = self.query_one("#log", LogPanel)
+        self._safe_update(
+            self.query_one("#control", ControlPanel).update_status, status
+        )
 
         if status == "starting":
-            self._safe_update(log_panel.add_line, "正在启动 llama-server...")
+            self._safe_update(
+                self.query_one("#log", LogPanel).add_line, "正在启动 llama-server..."
+            )
 
         if status == "running":
             config_data = self._config.load()
@@ -412,21 +414,29 @@ class LlamaLauncherApp(App):
                 port = config_data["server"]["port"]
                 webbrowser.open(f"http://127.0.0.1:{port}")
 
-            self._safe_update(log_panel.add_line, "服务器已就绪，可通过浏览器访问")
+            self._safe_update(
+                self.query_one("#log", LogPanel).add_line, "服务器已就绪，可通过浏览器访问"
+            )
 
             # 启动监控
             pid = data.get("pid")
             port = config_data["server"]["port"]
-            self._safe_update(monitor.start_monitoring, pid, port)
+            self._safe_update(
+                self.query_one("#monitor", MonitorPanel).start_monitoring, pid, port
+            )
 
         if status == "stopped":
-            self._safe_update(log_panel.add_line, "服务器已停止")
-            self._safe_update(monitor.stop_monitoring)
+            self._safe_update(
+                self.query_one("#log", LogPanel).add_line, "服务器已停止"
+            )
+            self._safe_update(
+                self.query_one("#monitor", MonitorPanel).stop_monitoring
+            )
 
         if status == "crashed":
             exit_code = data.get("exit_code", -1)
             self._safe_update(
-                log_panel.add_line,
+                self.query_one("#log", LogPanel).add_line,
                 f"llama-server 异常退出 (退出码: {exit_code})，请检查日志",
             )
             self._safe_update(
@@ -434,7 +444,9 @@ class LlamaLauncherApp(App):
                 f"llama-server 异常退出 (退出码: {exit_code})，请检查日志",
                 severity="error",
             )
-            self._safe_update(monitor.stop_monitoring)
+            self._safe_update(
+                self.query_one("#monitor", MonitorPanel).stop_monitoring
+            )
 
     def _on_log_line(self, **data) -> None:
         """响应日志行事件"""
