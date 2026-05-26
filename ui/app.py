@@ -400,12 +400,12 @@ class LlamaLauncherApp(App):
         status = data.get("status", "stopped")
 
         self._safe_update(
-            self.query_one("#control", ControlPanel).update_status, status
+            lambda: self.query_one("#control", ControlPanel).update_status(status)
         )
 
         if status == "starting":
             self._safe_update(
-                self.query_one("#log", LogPanel).add_line, "正在启动 llama-server..."
+                lambda: self.query_one("#log", LogPanel).add_line("正在启动 llama-server...")
             )
 
         if status == "running":
@@ -415,41 +415,40 @@ class LlamaLauncherApp(App):
                 webbrowser.open(f"http://127.0.0.1:{port}")
 
             self._safe_update(
-                self.query_one("#log", LogPanel).add_line, "服务器已就绪，可通过浏览器访问"
+                lambda: self.query_one("#log", LogPanel).add_line("服务器已就绪，可通过浏览器访问")
             )
 
             # 启动监控
             pid = data.get("pid")
             port = config_data["server"]["port"]
             self._safe_update(
-                self.query_one("#monitor", MonitorPanel).start_monitoring, pid, port
+                lambda: self.query_one("#monitor", MonitorPanel).start_monitoring(pid, port)
             )
 
         if status == "stopped":
             self._safe_update(
-                self.query_one("#log", LogPanel).add_line, "服务器已停止"
+                lambda: self.query_one("#log", LogPanel).add_line("服务器已停止")
             )
             self._safe_update(
-                self.query_one("#monitor", MonitorPanel).stop_monitoring
+                lambda: self.query_one("#monitor", MonitorPanel).stop_monitoring()
             )
 
         if status == "crashed":
             exit_code = data.get("exit_code", -1)
+            msg = f"llama-server 异常退出 (退出码: {exit_code})，请检查日志"
             self._safe_update(
-                self.query_one("#log", LogPanel).add_line,
-                f"llama-server 异常退出 (退出码: {exit_code})，请检查日志",
+                lambda: self.query_one("#log", LogPanel).add_line(msg)
             )
             self._safe_update(
-                self.notify,
-                f"llama-server 异常退出 (退出码: {exit_code})，请检查日志",
-                severity="error",
+                lambda: self.notify(msg, severity="error")
             )
             self._safe_update(
-                self.query_one("#monitor", MonitorPanel).stop_monitoring
+                lambda: self.query_one("#monitor", MonitorPanel).stop_monitoring()
             )
 
     def _on_log_line(self, **data) -> None:
         """响应日志行事件"""
         line = data.get("line", "")
-        log_panel = self.query_one("#log", LogPanel)
-        self._safe_update(log_panel.add_line, line)
+        self._safe_update(
+            lambda: self.query_one("#log", LogPanel).add_line(line)
+        )
