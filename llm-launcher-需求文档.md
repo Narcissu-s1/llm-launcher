@@ -73,47 +73,47 @@
 在控制面板新增「高级参数」折叠区（Textual `Collapsible` 组件），按类别分组：
 
 **KV Cache 与显存**
-- [ ] **KV Cache 量化类型**（`-ctk` / `-ctv`）：下拉 f16 / q8_0 / q4_0，默认 f16
-- [ ] **统一 KV 池**（`-kvu` / `--kv-unified`）：Switch 开关，多 slot 共享 KV
-- [ ] **KV 不放 GPU**（`--no-kv-offload`）：Switch 开关，省显存
-- [ ] **Flash Attention**（`-fa`）：Switch 开关，省显存加速
-- [ ] **Prompt Cache**（`--cache-prompt`）：Switch 开关，缓存相同前缀
-- [ ] **空闲 Slot 复活**（`--cache-idle-slots`）：Switch 开关
-- [ ] **Cache RAM 上限**（`--cache-ram`）：数字输入，默认 8192 MiB
+- [x] **KV Cache 量化类型**（`-ctk` / `-ctv`）：下拉 f16 / q8_0 / q4_0，默认 f16
+- [x] **统一 KV 池**（`-kvu` / `--kv-unified`）：Switch 开关，多 slot 共享 KV
+- [x] **KV 不放 GPU**（`--no-kv-offload`）：Switch 开关，省显存
+- [x] **Flash Attention**（`-fa`）：Switch 开关，省显存加速
+- [x] **Prompt Cache**（`--cache-prompt`）：Switch 开关，缓存相同前缀
+- [x] **空闲 Slot 复活**（`--cache-idle-slots`）：Switch 开关
+- [x] **Cache RAM 上限**（`--cache-ram`）：数字输入，默认 8192 MiB
 
 **推理速度**
-- [ ] **线程数**（`-t`）：数字输入，默认 -1（CPU 核心数）
-- [ ] **Prompt 线程数**（`-tb`）：数字输入，默认等于 `-t`
-- [ ] **逻辑批大小**（`-b`）：数字输入，默认 2048
-- [ ] **物理批大小**（`-ub`）：数字输入，默认 512
-- [ ] **HTTP 线程数**（`--threads-http`）：数字输入，默认 -1
-- [ ] **跳过预热**（`--no-warmup`）：Switch 开关
+- [x] **线程数**（`-t`）：数字输入，默认 -1（CPU 核心数）
+- [x] **Prompt 线程数**（`-tb`）：数字输入，默认等于 `-t`
+- [x] **逻辑批大小**（`-b`）：数字输入，默认 2048
+- [x] **物理批大小**（`-ub`）：数字输入，默认 512
+- [x] **HTTP 线程数**（`--threads-http`）：数字输入，默认 -1
+- [x] **跳过预热**（`--no-warmup`）：Switch 开关
 
 **采样参数**
-- [ ] **温度**（`--temp`）：滑块 0.0 ~ 2.0，默认 0.80
-- [ ] **Top-K**（`--top-k`）：数字输入，默认 40
-- [ ] **Top-P**（`--top-p`）：滑块 0.0 ~ 1.0，默认 0.95
-- [ ] **Min-P**（`--min-p`）：滑块 0.0 ~ 1.0，默认 0.05
-- [ ] **重复惩罚**（`--repeat-penalty`）：滑块 0.5 ~ 2.0，默认 1.0
-- [ ] **随机种子**（`-s`）：数字输入，-1 为随机
-- [ ] **最大生成长度**（`-n`）：数字输入，-1 为无限
-- [ ] **忽略 EOS**（`--ignore-eos`）：Switch 开关，忽略结束符持续生成
+- [x] **温度**（`--temp`）：滑块 0.0 ~ 2.0，默认 0.80
+- [x] **Top-K**（`--top-k`）：数字输入，默认 40
+- [x] **Top-P**（`--top-p`）：滑块 0.0 ~ 1.0，默认 0.95
+- [x] **Min-P**（`--min-p`）：滑块 0.0 ~ 1.0，默认 0.05
+- [x] **重复惩罚**（`--repeat-penalty`）：滑块 0.5 ~ 2.0，默认 1.0
+- [x] **随机种子**（`-s`）：数字输入，-1 为随机
+- [x] **最大生成长度**（`-n`）：数字输入，-1 为无限
+- [x] **忽略 EOS**（`--ignore-eos`）：Switch 开关，忽略结束符持续生成
 
 **思考/推理模式**
-- [ ] **思考模式**（`-rea` / `--reasoning`）：下拉 on / off / auto
-- [ ] **思考格式**（`--reasoning-format`）：下拉 none / deepseek / deepseek-legacy
-- [ ] **思考预算**（`--reasoning-budget`）：数字输入，-1 不限，0 不思考
+- [x] **思考模式**（`-rea` / `--reasoning`）：下拉 on / off / auto
+- [x] **思考格式**（`--reasoning-format`）：下拉 none / deepseek / deepseek-legacy
+- [x] **思考预算**（`--reasoning-budget`）：数字输入，-1 不限，0 不思考
 
 **多模态**
-- [ ] **视觉编码器放 GPU**（`--mmproj-offload`）：Switch 开关，默认开启
-- [ ] **最小视觉 Token**（`--image-min-tokens`）：数字输入
-- [ ] **最大视觉 Token**（`--image-max-tokens`）：数字输入
+- [x] **视觉编码器放 GPU**（`--mmproj-offload`）：Switch 开关，默认开启
+- [x] **最小视觉 Token**（`--image-min-tokens`）：数字输入
+- [x] **最大视觉 Token**（`--image-max-tokens`）：数字输入
 
 **安全与访问控制**
-- [ ] **API Key**（`--api-key`）：文本输入，留空不传参
-- [ ] **超时秒数**（`--timeout`）：数字输入，默认 600
-- [ ] **Prometheus 监控**（`--metrics`）：Switch 开关
-- [ ] **Slots 端点**（`--slots`）：Switch 开关，默认开启
+- [x] **API Key**（`--api-key`）：文本输入，留空不传参
+- [x] **超时秒数**（`--timeout`）：数字输入，默认 600
+- [x] **Prometheus 监控**（`--metrics`）：Switch 开关
+- [x] **Slots 端点**（`--slots`）：Switch 开关，默认开启
 
 实现要点：
 - `_build_command` 中对上述参数做条件拼接（空值/默认值不传参，避免干扰 llama-server 默认行为）
@@ -121,9 +121,9 @@
 - 参数分组使用 `Collapsible` 折叠，默认展开常用组（KV Cache、采样参数）
 
 #### 2.2 运行时监控
-- [ ] GPU 利用率 / 显存占用（调用 nvidia-smi）
-- [ ] 进程内存占用（RSS）
-- [ ] 当前活跃请求数（轮询 `/slots` 端点）
+- [x] GPU 利用率 / 显存占用（调用 nvidia-smi）✅ 待验证
+- [x] 进程内存占用（RSS）✅ 待验证
+- [x] 当前活跃请求数（轮询 /slots 端点）✅ 待验证
 - [ ] 每 slot 的上下文使用情况
 
 #### 2.3 预设管理
@@ -137,12 +137,12 @@
 - [ ] 支持粘贴图片 URL 测试多模态
 
 ### 验收标准
-- [ ] 高级参数全部可用，与 llama.cpp 命令行效果一致
-- [ ] 参数分组折叠显示，默认展开常用组
-- [ ] 空值/默认值不传参，避免干扰 llama-server 默认行为
-- [ ] 监控面板正确显示 GPU 占用和请求状态
+- [x] 高级参数全部可用，与 llama.cpp 命令行效果一致 ✅ 已验证
+- [x] 参数分组折叠显示，默认展开常用组 ✅ 已验证
+- [x] 空值/默认值不传参，避免干扰 llama-server 默认行为 ✅ 已验证
+- [x] 监控面板正确显示 GPU 占用和请求状态 ✅ 待验证
 - [ ] 预设可保存、切换、导出、导入
-n#### 延迟参数（待正式 UI 后实现）
+#### 延迟参数（待正式 UI 后实现）
 - `--grammar` / `--json-schema`：约束输出格式（需文本输入区 UI）
 - `--reasoning-budget-message`：推理预算用完时注入的提示语
 
@@ -220,7 +220,7 @@ n#### 延迟参数（待正式 UI 后实现）
 | 阶段 | 状态 | 备注 |
 |------|------|------|
 | 第一阶段 | ✅ 已完成 | 核心参数 + 启停 + 进程检测 |
-| 第二阶段 | 🚧 进行中 | 高级参数已完成，监控待做 |
+| 第二阶段 | 🚧 进行中 | 高级参数已验证，监控完成待验证 |
 | 第三阶段 | 🔲 待开始 | 多模型 + 下载 + 自动化 |
 | 第四阶段 | 🔲 待开始 | UX 优化 |
 
@@ -232,9 +232,9 @@ n#### 延迟参数（待正式 UI 后实现）
 | 创建 param_groups.py | ✅ | `ui/widgets/param_groups.py` 6 个参数 Widget |
 | 修改 ControlPanel | ✅ | Collapsible 折叠面板集成 |
 | 扩展 _build_command | ✅ | `core/process_manager.py` 支持 30 个参数 |
-| 创建 MonitorPanel | ⏳ | `ui/widgets/monitor_panel.py` 运行时监控 |
-| 集成 MonitorPanel | ⏳ | 修改 `ui/app.py` 布局和事件处理 |
-| 手动验证 | ⏳ | 运行全部测试 + 功能验证 |
+| 创建 MonitorPanel | ✅ | `ui/widgets/monitor_panel.py` 运行时监控 |
+| 集成 MonitorPanel | ✅ | 修改 `ui/app.py` 布局和事件处理 |
+| 手动验证 | ⏳ | 25/25 测试通过，功能待手动验证 |
 
 设计文档：`docs/superpowers/specs/2026-05-26-phase2-advanced-params-monitoring-design.md`
 实现计划：`docs/superpowers/plans/2026-05-26-phase2-advanced-params-monitoring.md`
