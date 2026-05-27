@@ -5,6 +5,17 @@ import psutil
 
 logger = logging.getLogger(__name__)
 
+
+def _format_bytes(n: int) -> str:
+    """将字节数格式化为人类可读字符串。"""
+    if n >= 1024 ** 3:
+        return f"{n / 1024 ** 3:.2f} GB"
+    if n >= 1024 ** 2:
+        return f"{n / 1024 ** 2:.2f} MB"
+    if n >= 1024:
+        return f"{n / 1024:.2f} KB"
+    return f"{n} B"
+
 class _MonitorWorker(QThread):
     stats_ready = Signal(dict)
 
