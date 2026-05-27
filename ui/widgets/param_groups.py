@@ -1,269 +1,225 @@
-"""高级参数分组 Widget"""
+from PySide6.QtWidgets import (
+    QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox,
+    QComboBox, QCheckBox, QLineEdit, QWidget, QVBoxLayout, QPushButton
+)
 
-from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
-from textual.widgets import Input, Label, Select, Switch
+def _safe_int(v, default=0):
+    try: return int(v)
+    except: return default
 
-
-def _safe_int(value: str, default: int) -> int:
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def _safe_float(value: str, default: float) -> float:
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return default
+def _safe_float(v, default=0.0):
+    try: return float(v)
+    except: return default
 
 
-class KVCacheParams(Vertical):
-    """KV Cache 与显存参数组"""
-
-    def compose(self) -> ComposeResult:
-        with Horizontal(classes="param-row"):
-            yield Label("K Cache 量化", classes="param-label")
-            yield Select(
-                [("f16", "f16"), ("q8_0", "q8_0"), ("q4_0", "q4_0")],
-                value="f16",
-                id="cache_type_k",
-            )
-        with Horizontal(classes="param-row"):
-            yield Label("V Cache 量化", classes="param-label")
-            yield Select(
-                [("f16", "f16"), ("q8_0", "q8_0"), ("q4_0", "q4_0")],
-                value="f16",
-                id="cache_type_v",
-            )
-        with Horizontal(classes="param-row"):
-            yield Label("统一 KV 池", classes="param-label")
-            yield Switch(value=True, id="kv_unified")
-        with Horizontal(classes="param-row"):
-            yield Label("KV 不放 GPU", classes="param-label")
-            yield Switch(value=False, id="no_kv_offload")
-        with Horizontal(classes="param-row"):
-            yield Label("Flash Attention", classes="param-label")
-            yield Switch(value=False, id="flash_attn")
-        with Horizontal(classes="param-row"):
-            yield Label("Prompt Cache", classes="param-label")
-            yield Switch(value=True, id="cache_prompt")
-        with Horizontal(classes="param-row"):
-            yield Label("空闲 Slot 复活", classes="param-label")
-            yield Switch(value=True, id="cache_idle_slots")
-        with Horizontal(classes="param-row"):
-            yield Label("Cache RAM 上限", classes="param-label")
-            yield Input(value="8192", id="cache_ram", placeholder="MiB")
+class _CollapsibleGroup(QGroupBox):
+    def __init__(self, title: str):
+        super().__init__(title)
+        self.setCheckable(True)
+        self.setChecked(True)  # 默认展开
 
     def collect_params(self) -> dict:
-        """收集 KV Cache 参数"""
+        raise NotImplementedError
+
+    def restore_params(self, d: dict):
+        raise NotImplementedError
+
+
+class KVCacheParams(_CollapsibleGroup):
+    def __init__(self):
+        super().__init__("KV Cache 与显存")
+        form = QFormLayout(self)
+        self._ctk = QComboBox(); self._ctk.addItems(["f16","q8_0","q4_0"])
+        self._ctv = QComboBox(); self._ctv.addItems(["f16","q8_0","q4_0"])
+        self._kvu = QCheckBox("统一 KV 池")
+        self._no_kv_offload = QCheckBox("KV 不放 GPU")
+        self._fa = QCheckBox("Flash Attention")
+        self._cache_prompt = QCheckBox("Prompt Cache")
+        self._cache_idle = QCheckBox("空闲 Slot 复活")
+        self._cache_ram = QSpinBox(); self._cache_ram.setRange(0, 999999); self._cache_ram.setValue(8192)
+        form.addRow("KV-K 量化 (-ctk)", self._ctk)
+        form.addRow("KV-V 量化 (-ctv)", self._ctv)
+        form.addRow("", self._kvu)
+        form.addRow("", self._no_kv_offload)
+        form.addRow("", self._fa)
+        form.addRow("", self._cache_prompt)
+        form.addRow("", self._cache_idle)
+        form.addRow("Cache RAM (MiB)", self._cache_ram)
+
+    def collect_params(self):
         return {
-            "cache_type_k": self.query_one("#cache_type_k", Select).value,
-            "cache_type_v": self.query_one("#cache_type_v", Select).value,
-            "kv_unified": self.query_one("#kv_unified", Switch).value,
-            "no_kv_offload": self.query_one("#no_kv_offload", Switch).value,
-            "flash_attn": self.query_one("#flash_attn", Switch).value,
-            "cache_prompt": self.query_one("#cache_prompt", Switch).value,
-            "cache_idle_slots": self.query_one("#cache_idle_slots", Switch).value,
-            "cache_ram": int(self.query_one("#cache_ram", Input).value or "8192"),
+            "ctk": self._ctk.currentText(),
+            "ctv": self._ctv.currentText(),
+            "kvu": self._kvu.isChecked(),
+            "no_kv_offload": self._no_kv_offload.isChecked(),
+            "flash_attn": self._fa.isChecked(),
+            "cache_prompt": self._cache_prompt.isChecked(),
+            "cache_idle_slots": self._cache_idle.isChecked(),
+            "cache_ram": self._cache_ram.value() if self._cache_ram.value() != 8192 else None,
         }
 
-    def restore_params(self, params: dict) -> None:
-        """从配置回填 KV Cache 参数"""
-        self.query_one("#cache_type_k", Select).value = params.get("cache_type_k", "f16")
-        self.query_one("#cache_type_v", Select).value = params.get("cache_type_v", "f16")
-        self.query_one("#kv_unified", Switch).value = params.get("kv_unified", True)
-        self.query_one("#no_kv_offload", Switch).value = params.get("no_kv_offload", False)
-        self.query_one("#flash_attn", Switch).value = params.get("flash_attn", False)
-        self.query_one("#cache_prompt", Switch).value = params.get("cache_prompt", True)
-        self.query_one("#cache_idle_slots", Switch).value = params.get("cache_idle_slots", True)
-        self.query_one("#cache_ram", Input).value = str(params.get("cache_ram", 8192))
+    def restore_params(self, d: dict):
+        if "ctk" in d: self._ctk.setCurrentText(d["ctk"])
+        if "ctv" in d: self._ctv.setCurrentText(d["ctv"])
+        if "kvu" in d: self._kvu.setChecked(d["kvu"])
+        if "no_kv_offload" in d: self._no_kv_offload.setChecked(d["no_kv_offload"])
+        if "flash_attn" in d: self._fa.setChecked(d["flash_attn"])
+        if "cache_prompt" in d: self._cache_prompt.setChecked(d["cache_prompt"])
+        if "cache_idle_slots" in d: self._cache_idle.setChecked(d["cache_idle_slots"])
+        if "cache_ram" in d and d["cache_ram"]: self._cache_ram.setValue(d["cache_ram"])
 
 
-class InferenceParams(Vertical):
-    """推理速度参数组"""
+class InferenceParams(_CollapsibleGroup):
+    def __init__(self):
+        super().__init__("推理速度")
+        form = QFormLayout(self)
+        self._threads = QSpinBox(); self._threads.setRange(-1, 256); self._threads.setValue(-1)
+        self._threads_batch = QSpinBox(); self._threads_batch.setRange(-1, 256); self._threads_batch.setValue(-1)
+        self._batch = QSpinBox(); self._batch.setRange(1, 65536); self._batch.setValue(2048)
+        self._ubatch = QSpinBox(); self._ubatch.setRange(1, 65536); self._ubatch.setValue(512)
+        self._threads_http = QSpinBox(); self._threads_http.setRange(-1, 256); self._threads_http.setValue(-1)
+        self._no_warmup = QCheckBox("跳过预热")
+        form.addRow("线程数 (-t)", self._threads)
+        form.addRow("Prompt 线程 (-tb)", self._threads_batch)
+        form.addRow("逻辑批大小 (-b)", self._batch)
+        form.addRow("物理批大小 (-ub)", self._ubatch)
+        form.addRow("HTTP 线程数", self._threads_http)
+        form.addRow("", self._no_warmup)
 
-    def compose(self) -> ComposeResult:
-        with Horizontal(classes="param-row"):
-            yield Label("线程数", classes="param-label")
-            yield Input(value="-1", id="threads", placeholder="-1=自动")
-        with Horizontal(classes="param-row"):
-            yield Label("Prompt 线程", classes="param-label")
-            yield Input(value="-1", id="threads_batch", placeholder="-1=等于线程数")
-        with Horizontal(classes="param-row"):
-            yield Label("逻辑批大小", classes="param-label")
-            yield Input(value="2048", id="batch_size")
-        with Horizontal(classes="param-row"):
-            yield Label("物理批大小", classes="param-label")
-            yield Input(value="512", id="ubatch_size")
-        with Horizontal(classes="param-row"):
-            yield Label("HTTP 线程", classes="param-label")
-            yield Input(value="-1", id="threads_http", placeholder="-1=自动")
-        with Horizontal(classes="param-row"):
-            yield Label("跳过预热", classes="param-label")
-            yield Switch(value=False, id="no_warmup")
-
-    def collect_params(self) -> dict:
+    def collect_params(self):
         return {
-            "threads": _safe_int(self.query_one("#threads", Input).value, -1),
-            "threads_batch": _safe_int(self.query_one("#threads_batch", Input).value, -1),
-            "batch_size": _safe_int(self.query_one("#batch_size", Input).value, 2048),
-            "ubatch_size": _safe_int(self.query_one("#ubatch_size", Input).value, 512),
-            "threads_http": _safe_int(self.query_one("#threads_http", Input).value, -1),
-            "no_warmup": self.query_one("#no_warmup", Switch).value,
+            "threads": self._threads.value() if self._threads.value() != -1 else None,
+            "threads_batch": self._threads_batch.value() if self._threads_batch.value() != -1 else None,
+            "batch_size": self._batch.value(),
+            "ubatch_size": self._ubatch.value(),
+            "threads_http": self._threads_http.value() if self._threads_http.value() != -1 else None,
+            "no_warmup": self._no_warmup.isChecked(),
         }
 
-    def restore_params(self, params: dict) -> None:
-        self.query_one("#threads", Input).value = str(params.get("threads", -1))
-        self.query_one("#threads_batch", Input).value = str(params.get("threads_batch", -1))
-        self.query_one("#batch_size", Input).value = str(params.get("batch_size", 2048))
-        self.query_one("#ubatch_size", Input).value = str(params.get("ubatch_size", 512))
-        self.query_one("#threads_http", Input).value = str(params.get("threads_http", -1))
-        self.query_one("#no_warmup", Switch).value = params.get("no_warmup", False)
+    def restore_params(self, d: dict):
+        if "threads" in d and d["threads"]: self._threads.setValue(d["threads"])
+        if "threads_batch" in d and d["threads_batch"]: self._threads_batch.setValue(d["threads_batch"])
+        if "batch_size" in d: self._batch.setValue(d["batch_size"])
+        if "ubatch_size" in d: self._ubatch.setValue(d["ubatch_size"])
+        if "threads_http" in d and d["threads_http"]: self._threads_http.setValue(d["threads_http"])
+        if "no_warmup" in d: self._no_warmup.setChecked(d["no_warmup"])
 
 
-class SamplingParams(Vertical):
-    """采样参数组"""
+class SamplingParams(_CollapsibleGroup):
+    def __init__(self):
+        super().__init__("采样参数")
+        form = QFormLayout(self)
+        self._temp = QDoubleSpinBox(); self._temp.setRange(0.0, 2.0); self._temp.setValue(0.8); self._temp.setSingleStep(0.05)
+        self._top_k = QSpinBox(); self._top_k.setRange(0, 1000); self._top_k.setValue(40)
+        self._top_p = QDoubleSpinBox(); self._top_p.setRange(0.0, 1.0); self._top_p.setValue(0.95); self._top_p.setSingleStep(0.05)
+        self._min_p = QDoubleSpinBox(); self._min_p.setRange(0.0, 1.0); self._min_p.setValue(0.05); self._min_p.setSingleStep(0.01)
+        self._repeat_penalty = QDoubleSpinBox(); self._repeat_penalty.setRange(0.5, 2.0); self._repeat_penalty.setValue(1.0); self._repeat_penalty.setSingleStep(0.05)
+        self._seed = QSpinBox(); self._seed.setRange(-1, 2**31-1); self._seed.setValue(-1)
+        self._n_predict = QSpinBox(); self._n_predict.setRange(-1, 100000); self._n_predict.setValue(-1)
+        self._ignore_eos = QCheckBox("忽略 EOS")
+        form.addRow("Temperature", self._temp)
+        form.addRow("Top-K", self._top_k)
+        form.addRow("Top-P", self._top_p)
+        form.addRow("Min-P", self._min_p)
+        form.addRow("重复惩罚", self._repeat_penalty)
+        form.addRow("随机种子", self._seed)
+        form.addRow("最大生成长度", self._n_predict)
+        form.addRow("", self._ignore_eos)
 
-    def compose(self) -> ComposeResult:
-        with Horizontal(classes="param-row"):
-            yield Label("温度", classes="param-label")
-            yield Input(value="0.80", id="temp")
-        with Horizontal(classes="param-row"):
-            yield Label("Top-K", classes="param-label")
-            yield Input(value="40", id="top_k")
-        with Horizontal(classes="param-row"):
-            yield Label("Top-P", classes="param-label")
-            yield Input(value="0.95", id="top_p")
-        with Horizontal(classes="param-row"):
-            yield Label("Min-P", classes="param-label")
-            yield Input(value="0.05", id="min_p")
-        with Horizontal(classes="param-row"):
-            yield Label("重复惩罚", classes="param-label")
-            yield Input(value="1.0", id="repeat_penalty")
-        with Horizontal(classes="param-row"):
-            yield Label("随机种子", classes="param-label")
-            yield Input(value="-1", id="seed", placeholder="-1=随机")
-        with Horizontal(classes="param-row"):
-            yield Label("最大生成", classes="param-label")
-            yield Input(value="-1", id="n_predict", placeholder="-1=无限")
-        with Horizontal(classes="param-row"):
-            yield Label("忽略 EOS", classes="param-label")
-            yield Switch(value=False, id="ignore_eos")
-
-    def collect_params(self) -> dict:
+    def collect_params(self):
         return {
-            "temp": _safe_float(self.query_one("#temp", Input).value, 0.80),
-            "top_k": _safe_int(self.query_one("#top_k", Input).value, 40),
-            "top_p": _safe_float(self.query_one("#top_p", Input).value, 0.95),
-            "min_p": _safe_float(self.query_one("#min_p", Input).value, 0.05),
-            "repeat_penalty": _safe_float(self.query_one("#repeat_penalty", Input).value, 1.0),
-            "seed": _safe_int(self.query_one("#seed", Input).value, -1),
-            "n_predict": _safe_int(self.query_one("#n_predict", Input).value, -1),
-            "ignore_eos": self.query_one("#ignore_eos", Switch).value,
+            "temperature": self._temp.value(),
+            "top_k": self._top_k.value(),
+            "top_p": self._top_p.value(),
+            "min_p": self._min_p.value(),
+            "repeat_penalty": self._repeat_penalty.value(),
+            "seed": self._seed.value(),
+            "n_predict": self._n_predict.value(),
+            "ignore_eos": self._ignore_eos.isChecked(),
         }
 
-    def restore_params(self, params: dict) -> None:
-        self.query_one("#temp", Input).value = str(params.get("temp", 0.80))
-        self.query_one("#top_k", Input).value = str(params.get("top_k", 40))
-        self.query_one("#top_p", Input).value = str(params.get("top_p", 0.95))
-        self.query_one("#min_p", Input).value = str(params.get("min_p", 0.05))
-        self.query_one("#repeat_penalty", Input).value = str(params.get("repeat_penalty", 1.0))
-        self.query_one("#seed", Input).value = str(params.get("seed", -1))
-        self.query_one("#n_predict", Input).value = str(params.get("n_predict", -1))
-        self.query_one("#ignore_eos", Switch).value = params.get("ignore_eos", False)
+    def restore_params(self, d: dict):
+        if "temperature" in d: self._temp.setValue(d["temperature"])
+        if "top_k" in d: self._top_k.setValue(d["top_k"])
+        if "top_p" in d: self._top_p.setValue(d["top_p"])
+        if "min_p" in d: self._min_p.setValue(d["min_p"])
+        if "repeat_penalty" in d: self._repeat_penalty.setValue(d["repeat_penalty"])
+        if "seed" in d: self._seed.setValue(d["seed"])
+        if "n_predict" in d: self._n_predict.setValue(d["n_predict"])
+        if "ignore_eos" in d: self._ignore_eos.setChecked(d["ignore_eos"])
 
 
-class ReasoningParams(Vertical):
-    """思考/推理模式参数组"""
+class ReasoningParams(_CollapsibleGroup):
+    def __init__(self):
+        super().__init__("思考/推理模式")
+        form = QFormLayout(self)
+        self._rea = QComboBox(); self._rea.addItems(["auto","on","off"])
+        self._rea_format = QComboBox(); self._rea_format.addItems(["none","deepseek","deepseek-legacy"])
+        self._rea_budget = QSpinBox(); self._rea_budget.setRange(-1, 100000); self._rea_budget.setValue(-1)
+        form.addRow("思考模式 (-rea)", self._rea)
+        form.addRow("思考格式", self._rea_format)
+        form.addRow("思考预算", self._rea_budget)
 
-    def compose(self) -> ComposeResult:
-        with Horizontal(classes="param-row"):
-            yield Label("启用模式", classes="param-label")
-            yield Select(
-                [("auto", "auto"), ("on", "on"), ("off", "off")],
-                value="auto",
-                id="reasoning",
-            )
-        with Horizontal(classes="param-row"):
-            yield Label("思考格式", classes="param-label")
-            yield Select(
-                [("auto", "auto"), ("none", "none"), ("deepseek", "deepseek"), ("deepseek-legacy", "deepseek-legacy")],
-                value="auto",
-                id="reasoning_format",
-            )
-        with Horizontal(classes="param-row"):
-            yield Label("思考预算", classes="param-label")
-            yield Input(value="-1", id="reasoning_budget", placeholder="-1=不限")
-
-    def collect_params(self) -> dict:
+    def collect_params(self):
         return {
-            "reasoning": self.query_one("#reasoning", Select).value,
-            "reasoning_format": self.query_one("#reasoning_format", Select).value,
-            "reasoning_budget": _safe_int(self.query_one("#reasoning_budget", Input).value, -1),
+            "reasoning": self._rea.currentText(),
+            "reasoning_format": self._rea_format.currentText() if self._rea_format.currentText() != "none" else None,
+            "reasoning_budget": self._rea_budget.value(),
         }
 
-    def restore_params(self, params: dict) -> None:
-        self.query_one("#reasoning", Select).value = params.get("reasoning", "auto")
-        self.query_one("#reasoning_format", Select).value = params.get("reasoning_format", "auto")
-        self.query_one("#reasoning_budget", Input).value = str(params.get("reasoning_budget", -1))
+    def restore_params(self, d: dict):
+        if "reasoning" in d: self._rea.setCurrentText(d["reasoning"])
+        if "reasoning_format" in d and d["reasoning_format"]: self._rea_format.setCurrentText(d["reasoning_format"])
+        if "reasoning_budget" in d: self._rea_budget.setValue(d["reasoning_budget"])
 
 
-class MultimodalParams(Vertical):
-    """多模态参数组"""
+class MultimodalParams(_CollapsibleGroup):
+    def __init__(self):
+        super().__init__("多模态")
+        form = QFormLayout(self)
+        self._mmproj_offload = QCheckBox("视觉编码器放 GPU")
+        self._img_min = QSpinBox(); self._img_min.setRange(0, 10000); self._img_min.setValue(0)
+        self._img_max = QSpinBox(); self._img_max.setRange(0, 10000); self._img_max.setValue(0)
+        form.addRow("", self._mmproj_offload)
+        form.addRow("最小视觉 Token", self._img_min)
+        form.addRow("最大视觉 Token", self._img_max)
 
-    def compose(self) -> ComposeResult:
-        with Horizontal(classes="param-row"):
-            yield Label("视觉放 GPU", classes="param-label")
-            yield Switch(value=True, id="mmproj_offload")
-        with Horizontal(classes="param-row"):
-            yield Label("最小视觉 Token", classes="param-label")
-            yield Input(value="0", id="image_min_tokens", placeholder="0=默认")
-        with Horizontal(classes="param-row"):
-            yield Label("最大视觉 Token", classes="param-label")
-            yield Input(value="0", id="image_max_tokens", placeholder="0=默认")
-
-    def collect_params(self) -> dict:
+    def collect_params(self):
         return {
-            "mmproj_offload": self.query_one("#mmproj_offload", Switch).value,
-            "image_min_tokens": _safe_int(self.query_one("#image_min_tokens", Input).value, 0),
-            "image_max_tokens": _safe_int(self.query_one("#image_max_tokens", Input).value, 0),
+            "mmproj_offload": self._mmproj_offload.isChecked(),
+            "image_min_tokens": self._img_min.value() if self._img_min.value() > 0 else None,
+            "image_max_tokens": self._img_max.value() if self._img_max.value() > 0 else None,
         }
 
-    def restore_params(self, params: dict) -> None:
-        self.query_one("#mmproj_offload", Switch).value = params.get("mmproj_offload", True)
-        self.query_one("#image_min_tokens", Input).value = str(params.get("image_min_tokens", 0))
-        self.query_one("#image_max_tokens", Input).value = str(params.get("image_max_tokens", 0))
+    def restore_params(self, d: dict):
+        if "mmproj_offload" in d: self._mmproj_offload.setChecked(d["mmproj_offload"])
+        if "image_min_tokens" in d and d["image_min_tokens"]: self._img_min.setValue(d["image_min_tokens"])
+        if "image_max_tokens" in d and d["image_max_tokens"]: self._img_max.setValue(d["image_max_tokens"])
 
 
-class SecurityParams(Vertical):
-    """安全与访问控制参数组"""
+class SecurityParams(_CollapsibleGroup):
+    def __init__(self):
+        super().__init__("安全与访问控制")
+        form = QFormLayout(self)
+        self._api_key = QLineEdit(); self._api_key.setPlaceholderText("留空不传参")
+        self._timeout = QSpinBox(); self._timeout.setRange(0, 86400); self._timeout.setValue(600)
+        self._metrics = QCheckBox("Prometheus 监控 (--metrics)")
+        self._slots = QCheckBox("Slots 端点 (--slots)")
+        form.addRow("API Key", self._api_key)
+        form.addRow("超时秒数", self._timeout)
+        form.addRow("", self._metrics)
+        form.addRow("", self._slots)
 
-    def compose(self) -> ComposeResult:
-        with Horizontal(classes="param-row"):
-            yield Label("API Key", classes="param-label")
-            yield Input(value="", id="api_key", placeholder="留空不校验")
-        with Horizontal(classes="param-row"):
-            yield Label("超时秒数", classes="param-label")
-            yield Input(value="600", id="timeout")
-        with Horizontal(classes="param-row"):
-            yield Label("Prometheus", classes="param-label")
-            yield Switch(value=False, id="metrics")
-        with Horizontal(classes="param-row"):
-            yield Label("Slots 端点", classes="param-label")
-            yield Switch(value=True, id="slots")
-
-    def collect_params(self) -> dict:
+    def collect_params(self):
         return {
-            "api_key": self.query_one("#api_key", Input).value.strip(),
-            "timeout": _safe_int(self.query_one("#timeout", Input).value, 600),
-            "metrics": self.query_one("#metrics", Switch).value,
-            "slots": self.query_one("#slots", Switch).value,
+            "api_key": self._api_key.text() or None,
+            "timeout": self._timeout.value(),
+            "metrics": self._metrics.isChecked(),
+            "slots": self._slots.isChecked(),
         }
 
-    def restore_params(self, params: dict) -> None:
-        self.query_one("#api_key", Input).value = params.get("api_key", "")
-        self.query_one("#timeout", Input).value = str(params.get("timeout", 600))
-        self.query_one("#metrics", Switch).value = params.get("metrics", False)
-        self.query_one("#slots", Switch).value = params.get("slots", True)
+    def restore_params(self, d: dict):
+        if "api_key" in d and d["api_key"]: self._api_key.setText(d["api_key"])
+        if "timeout" in d: self._timeout.setValue(d["timeout"])
+        if "metrics" in d: self._metrics.setChecked(d["metrics"])
+        if "slots" in d: self._slots.setChecked(d["slots"])
