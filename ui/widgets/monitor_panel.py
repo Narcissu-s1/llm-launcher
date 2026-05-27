@@ -21,7 +21,7 @@ class MonitorPanel(Horizontal):
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
         self._gpu_available: bool | None = None  # None = 未检测
-        self._running = False
+        self._monitoring_active = False
         self._thread: threading.Thread | None = None
         self._pid: int | None = None
         self._port: int = 8080
@@ -52,20 +52,20 @@ class MonitorPanel(Horizontal):
             if not self._gpu_available:
                 self.query_one("#mon_gpu", Static).display = False
 
-        if not self._running:
-            self._running = True
+        if not self._monitoring_active:
+            self._monitoring_active = True
             self._thread = threading.Thread(target=self._poll_loop, daemon=True)
             self._thread.start()
 
     def stop_monitoring(self) -> None:
         """停止监控轮询"""
-        self._running = False
+        self._monitoring_active = False
         if self._thread is not None:
             self._thread.join(timeout=3)
 
     def _poll_loop(self) -> None:
         """后台轮询线程"""
-        while self._running:
+        while self._monitoring_active:
             try:
                 self._collect_and_update()
             except Exception:
@@ -137,5 +137,5 @@ class MonitorPanel(Horizontal):
         for unit in ["B", "KB", "MB", "GB", "TB"]:
             if n < 1024:
                 return f"{n:.1f} {unit}"
-            n /= 1024
+            n = n // 1024
         return f"{n:.1f} PB"
