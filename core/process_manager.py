@@ -248,7 +248,7 @@ class ProcessSupervisor:
         # Phase 2 - 思考模式
         if params.get("reasoning", "auto") != "auto":
             cmd.extend(["-rea", params["reasoning"]])
-        if params.get("reasoning_format", "auto") != "auto":
+        if params.get("reasoning_format") and params["reasoning_format"] != "auto":
             cmd.extend(["--reasoning-format", params["reasoning_format"]])
         if params.get("reasoning_budget", -1) != -1:
             cmd.extend(["--reasoning-budget", str(params["reasoning_budget"])])

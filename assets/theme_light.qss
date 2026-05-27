@@ -75,6 +75,28 @@ QHeaderView::section {
     color: #718096;
     padding: 6px 8px;
 }
+/* SpinBox 上下按钮 */
+QSpinBox::up-button, QDoubleSpinBox::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 16px;
+    border-left: 1px solid #e8eef2;
+    border-bottom: 1px solid #e8eef2;
+    background: #f8fafb;
+}
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover { background: #e8f4fd; }
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 16px;
+    border-left: 1px solid #e8eef2;
+    border-top: 1px solid #e8eef2;
+    background: #f8fafb;
+}
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover { background: #e8f4fd; }
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow { width: 7px; height: 7px; }
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow { width: 7px; height: 7px; }
+
 /* 滚动条 */
 QScrollBar:vertical { width: 6px; background: transparent; }
 QScrollBar::handle:vertical { background: #e8eef2; border-radius: 3px; min-height: 20px; }

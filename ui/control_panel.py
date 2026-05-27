@@ -212,6 +212,8 @@ class ControlPanel(QWidget):
         for old, new in _REMAP.items():
             if old in params:
                 params[new] = params.pop(old)
+        # 过滤 None 值，防止可选参数未设置时进入命令行
+        params = {k: v for k, v in params.items() if v is not None}
         return params
 
     def _restore(self):

@@ -49,24 +49,26 @@ class LlamaLauncherApp(QMainWindow):
         self._status_line.setStyleSheet("background:#cbd5e0;")
         root.addWidget(self._status_line)
 
-        # 左侧面板 (tabs)
-        left = QTabWidget()
-        left.setFixedWidth(400)
+        # 左侧面板：只有控制面板
         self._control = ControlPanel(self._config, self._supervisor)
+        self._control.setFixedWidth(400)
+        root.addWidget(self._control)
+
+        # 右侧：上方 Tab（日志/模型库/下载/聊天） + 下方监控(30%)
+        right_splitter = QSplitter(Qt.Orientation.Vertical)
+
+        self._right_tabs = QTabWidget()
+        self._log_panel = LogPanel()
         self._library = ModelLibraryPanel(self._config)
         self._download = DownloadPanel(self._config)
         self._chat = ChatPanel(self._config)
-        left.addTab(self._control, "控制")
-        left.addTab(self._library, "模型库")
-        left.addTab(self._download, "下载")
-        left.addTab(self._chat, "聊天")
-        root.addWidget(left)
+        self._right_tabs.addTab(self._log_panel, "日志")
+        self._right_tabs.addTab(self._library, "模型库")
+        self._right_tabs.addTab(self._download, "下载")
+        self._right_tabs.addTab(self._chat, "聊天")
 
-        # 右侧：日志(70%) / 监控(30%) 上下分栏
-        right_splitter = QSplitter(Qt.Orientation.Vertical)
-        self._log_panel = LogPanel()
         self._monitor = MonitorPanel(self._supervisor)
-        right_splitter.addWidget(self._log_panel)
+        right_splitter.addWidget(self._right_tabs)
         right_splitter.addWidget(self._monitor)
         right_splitter.setStretchFactor(0, 7)
         right_splitter.setStretchFactor(1, 3)

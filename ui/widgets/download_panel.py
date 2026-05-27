@@ -63,11 +63,16 @@ class DownloadPanel(QWidget):
         btn_row = QHBoxLayout()
         self._btn_copy_log = QPushButton("复制日志")
         self._btn_copy_log.clicked.connect(self._copy_log)
+        self._btn_cancel = QPushButton("取消")
+        self._btn_cancel.setObjectName("btnStop")
+        self._btn_cancel.setEnabled(False)
+        self._btn_cancel.clicked.connect(self._cancel)
         self._btn_start = QPushButton("开始下载")
         self._btn_start.setObjectName("btnPrimary")
         self._btn_start.clicked.connect(self._start)
         btn_row.addWidget(self._btn_copy_log)
         btn_row.addStretch()
+        btn_row.addWidget(self._btn_cancel)
         btn_row.addWidget(self._btn_start)
         layout.addLayout(btn_row)
 
@@ -142,6 +147,8 @@ class DownloadPanel(QWidget):
         fail = sum(1 for t in tasks if t.status == "error")
         self._log_msg(f"下载完成：{ok} 成功，{fail} 失败")
         self._progress_bar.setVisible(False)
+        self._btn_cancel.setEnabled(False)
+        self._btn_start.setEnabled(True)
 
     def _start(self):
         if not self._selected:
@@ -153,6 +160,8 @@ class DownloadPanel(QWidget):
         endpoint, source = self._get_source_params()
         self._progress_bar.setVisible(True)
         self._progress_bar.setValue(0)
+        self._btn_cancel.setEnabled(True)
+        self._btn_start.setEnabled(False)
         self._log_msg(f"开始下载 {len(self._selected)} 个文件...")
         self._dl.start(
             files=self._selected,
@@ -164,6 +173,12 @@ class DownloadPanel(QWidget):
             endpoint=endpoint,
             source=source,
         )
+
+    def _cancel(self):
+        self._dl.cancel()
+        self._log_msg("已发送取消信号...")
+        self._btn_cancel.setEnabled(False)
+        self._btn_start.setEnabled(True)
 
     def _copy_log(self):
         from PySide6.QtWidgets import QApplication
