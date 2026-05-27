@@ -12,6 +12,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("LLM Launcher")
+
+    # 加载 QSS 主题
+    import os
+    qss_path = os.path.join(os.path.dirname(__file__), "assets", "theme_light.qss")
+    if os.path.exists(qss_path):
+        with open(qss_path, encoding="utf-8") as f:
+            app.setStyleSheet(f.read())
+
     window = LlamaLauncherApp()
     window.show()
     sys.exit(app.exec())
