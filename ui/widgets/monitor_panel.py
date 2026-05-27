@@ -117,12 +117,13 @@ class MonitorPanel(Horizontal):
             return "GPU: --"
 
     def _collect_cpu(self) -> str:
-        """采集系统 CPU 和进程 CPU"""
+        """采集系统 CPU 和进程 CPU（均为全核平均百分比）"""
         sys_cpu = psutil.cpu_percent(interval=0)
         proc_cpu = 0.0
         if self._proc:
             try:
-                proc_cpu = self._proc.cpu_percent()
+                raw = self._proc.cpu_percent()
+                proc_cpu = raw / psutil.cpu_count()
             except psutil.NoSuchProcess:
                 self._proc = None
         return f"CPU: {sys_cpu:.0f}%({proc_cpu:.0f}%)"
