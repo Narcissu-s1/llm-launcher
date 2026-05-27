@@ -1,8 +1,10 @@
 # ui/control_panel.py
 """左侧控制面板：模型选择、参数配置、启停按钮"""
 
+import json
 import os
 import string
+import sys
 
 from textual.app import ComposeResult
 from textual.containers import Vertical, Horizontal
@@ -14,6 +16,120 @@ from ui.widgets.param_groups import (
     KVCacheParams, InferenceParams, SamplingParams,
     ReasoningParams, MultimodalParams, SecurityParams,
 )
+
+
+class PresetNameDialog(ModalScreen[str | None]):
+    """输入预设名称的弹窗，返回名称字符串或 None（取消）"""
+
+    def __init__(self, existing_names: list[str], default: str = ""):
+        super().__init__()
+        self._existing = existing_names
+        self._default = default
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="preset-dialog"):
+            yield Label("预设名称：")
+            yield Input(value=self._default, id="preset_name_input", placeholder="输入名称...")
+            with Horizontal():
+                yield Button("确认", id="btn_preset_ok", variant="primary")
+                yield Button("取消", id="btn_preset_cancel", variant="default")
+
+    def on_mount(self) -> None:
+        self.query_one("#preset_name_input", Input).focus()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn_preset_cancel":
+            self.dismiss(None)
+        elif event.button.id == "btn_preset_ok":
+            self._confirm()
+
+    def on_input_submitted(self, _: Input.Submitted) -> None:
+        self._confirm()
+
+    def key_escape(self) -> None:
+        self.dismiss(None)
+
+    def _confirm(self) -> None:
+        name = self.query_one("#preset_name_input", Input).value.strip()
+        if name:
+            self.dismiss(name)
+
+
+class JsonFileBrowser(ModalScreen[str | None]):
+    """选择 JSON 文件的弹窗（用于导入预设）"""
+
+    def __init__(self, start_dir: str = "."):
+        super().__init__()
+        self._current_dir = os.path.abspath(
+            start_dir if os.path.isdir(start_dir) else "."
+        )
+
+    def compose(self) -> ComposeResult:
+        with Vertical():
+            yield Label(f"当前目录: {self._current_dir}", id="jbrowser-path")
+            yield ListView(id="json_file_list")
+            with Horizontal():
+                yield Button("上级目录", id="btn_jparent", variant="primary")
+                yield Button("取消", id="btn_jcancel", variant="default")
+
+    def on_mount(self) -> None:
+        self._refresh_list()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn_jcancel":
+            self.dismiss(None)
+        elif event.button.id == "btn_jparent":
+            new_dir = _navigate_to_parent(self._current_dir)
+            if new_dir != self._current_dir:
+                self._current_dir = new_dir
+            self._refresh_list()
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        if event.item is None or event.item.name is None:
+            return
+        choice = event.item.name
+        if choice == "..":
+            new_dir = _navigate_to_parent(self._current_dir)
+            if new_dir != self._current_dir:
+                self._current_dir = new_dir
+            self._refresh_list()
+            return
+        if choice.endswith(":\\") and os.path.isdir(choice):
+            self._current_dir = choice
+            self._refresh_list()
+            return
+        full_path = os.path.join(self._current_dir, choice)
+        if os.path.isdir(full_path):
+            self._current_dir = full_path
+            self._refresh_list()
+        elif choice.endswith(".json"):
+            self.dismiss(full_path)
+
+    def key_escape(self) -> None:
+        self.dismiss(None)
+
+    def _refresh_list(self) -> None:
+        lst = self.query_one("#json_file_list", ListView)
+        self.query_one("#jbrowser-path", Label).update(f"当前目录: {self._current_dir}")
+        lst.clear()
+        items = []
+        if _is_filesystem_root(self._current_dir):
+            for drive in _get_available_drives():
+                items.append(ListItem(Label(f"💾 {drive}"), name=drive))
+        else:
+            items.append(ListItem(Label("📁 .."), name=".."))
+        try:
+            entries = sorted(os.listdir(self._current_dir))
+        except OSError:
+            lst.extend(items)
+            return
+        for name in entries:
+            if os.path.isdir(os.path.join(self._current_dir, name)):
+                items.append(ListItem(Label(f"📁 {name}"), name=name))
+        for name in entries:
+            if name.endswith(".json"):
+                items.append(ListItem(Label(f"📄 {name}"), name=name))
+        lst.extend(items)
 
 
 def _get_available_drives() -> list[str]:
@@ -141,15 +257,16 @@ class FileBrowser(ModalScreen[str | None]):
 class DirPicker(ModalScreen[str | None]):
     """目录选择器弹窗，用于选择 llama.cpp 所在文件夹"""
 
-    def __init__(self, start_dir: str = "."):
+    def __init__(self, start_dir: str = ".", title: str = "选择目录"):
         super().__init__()
+        self._title = title
         self._current_dir = os.path.abspath(
             start_dir if os.path.isdir(start_dir) else "."
         )
 
     def compose(self) -> ComposeResult:
         with Vertical():
-            yield Label(f"选择 llama.cpp 目录", id="dir-picker-title")
+            yield Label(self._title, id="dir-picker-title")
             yield Label(f"当前: {self._current_dir}", id="dir-picker-path")
             yield ListView(id="dir_list")
             with Horizontal(id="browser-actions"):
@@ -306,15 +423,15 @@ class ControlPanel(Vertical):
 
         # 选项区
         with Horizontal(id="options-row"):
-            yield Switch(value=True, id="auto_open_browser")
+            yield Switch(value=False, id="auto_open_browser")
             yield Label("启动后打开浏览器")
 
         # 高级参数折叠区
-        with Collapsible(title="KV Cache 与显存", collapsed=False, id="coll_kvcache"):
+        with Collapsible(title="KV Cache 与显存", collapsed=True, id="coll_kvcache"):
             yield KVCacheParams()
         with Collapsible(title="推理速度", collapsed=True, id="coll_inference"):
             yield InferenceParams()
-        with Collapsible(title="采样参数", collapsed=False, id="coll_sampling"):
+        with Collapsible(title="采样参数", collapsed=True, id="coll_sampling"):
             yield SamplingParams()
         with Collapsible(title="思考模式", collapsed=True, id="coll_reasoning"):
             yield ReasoningParams()
@@ -322,6 +439,24 @@ class ControlPanel(Vertical):
             yield MultimodalParams()
         with Collapsible(title="安全", collapsed=True, id="coll_security"):
             yield SecurityParams()
+
+        # 预设管理区
+        yield Label("预设管理", classes="section-title")
+        with Horizontal(id="preset-row-select"):
+            yield Select([], id="preset_select", prompt="选择预设...", allow_blank=True)
+        with Horizontal(id="preset-row-actions"):
+            yield Button("载入预设", id="btn_preset_load", variant="primary")
+        with Horizontal(id="preset-row-actions2"):
+            yield Button("保存预设", id="btn_preset_save", variant="default")
+            yield Button("删除预设", id="btn_preset_delete", variant="error")
+        with Horizontal(id="preset-row-actions3"):
+            yield Button("导出 JSON", id="btn_preset_export", variant="default")
+            yield Button("导入 JSON", id="btn_preset_import", variant="default")
+
+        # 开机自启
+        with Horizontal(id="autostart-row"):
+            yield Switch(value=self._read_autostart(), id="autostart")
+            yield Label("开机自启")
 
         # 启停按钮
         with Horizontal(id="action-row"):
@@ -379,3 +514,78 @@ class ControlPanel(Vertical):
         for widget_cls in self._PARAM_WIDGET_CLASSES:
             widget = self.query_one(widget_cls)
             widget.restore_params(server)
+
+    def restore_basic_params(self, srv: dict) -> None:
+        """从 server 参数字典回填基本参数控件"""
+        if "port" in srv:
+            self.query_one("#port", Input).value = str(srv["port"])
+        if "host" in srv:
+            self.query_one("#host", Select).value = srv["host"]
+        if "context_size" in srv:
+            self.query_one("#context_size", Select).value = str(srv["context_size"])
+        if "n_gpu_layers" in srv:
+            self.query_one("#n_gpu_layers", Input).value = str(srv["n_gpu_layers"])
+        if "parallel" in srv:
+            self.query_one("#parallel", Select).value = str(srv["parallel"])
+
+    def refresh_presets(self, presets: dict) -> None:
+        """刷新预设下拉列表"""
+        sel = self.query_one("#preset_select", Select)
+        options = [(name, name) for name in sorted(presets.keys())]
+        sel.set_options(options)
+
+    def get_selected_preset(self) -> str | None:
+        """返回当前选中的预设名，无选中时返回 None"""
+        from textual.widgets.select import NoSelection
+        v = self.query_one("#preset_select", Select).value
+        return None if isinstance(v, NoSelection) else v
+
+    # ------------------------------------------------------------------
+    # 开机自启
+    # ------------------------------------------------------------------
+
+    _REGISTRY_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    _REG_VALUE_NAME = "LLMlauncher"
+
+    def _read_autostart(self) -> bool:
+        """读取注册表，判断是否已设置开机自启"""
+        try:
+            import winreg
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                self._REGISTRY_KEY,
+                0,
+                winreg.KEY_READ,
+            )
+            winreg.QueryValueEx(key, self._REG_VALUE_NAME)
+            winreg.CloseKey(key)
+            return True
+        except (FileNotFoundError, OSError):
+            return False
+
+    def _toggle_autostart(self, enabled: bool) -> None:
+        """写入或删除开机自启注册表项"""
+        try:
+            import winreg
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                self._REGISTRY_KEY,
+                0,
+                winreg.KEY_SET_VALUE,
+            )
+            if enabled:
+                value = f'{sys.executable} "{os.path.abspath("main.py")}"'
+                winreg.SetValueEx(key, self._REG_VALUE_NAME, 0, winreg.REG_SZ, value)
+            else:
+                try:
+                    winreg.DeleteValue(key, self._REG_VALUE_NAME)
+                except FileNotFoundError:
+                    pass
+            winreg.CloseKey(key)
+        except OSError:
+            pass
+
+    def on_switch_changed(self, event: Switch.Changed) -> None:
+        """处理所有 Switch 变化，过滤出 autostart"""
+        if event.switch.id == "autostart":
+            self._toggle_autostart(event.value)
