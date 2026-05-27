@@ -461,8 +461,8 @@
     <div class="phase-header" onclick="togglePhase(this)">
       <span class="arrow">▶</span>
       <span class="phase-title">第二阶段：高级参数与运行时监控</span>
-      <span class="phase-progress"><div class="fill" style="width:84%;background:var(--yellow)"></div></span>
-      <span class="phase-badge badge-wip">进行中</span>
+      <span class="phase-progress"><div class="fill" style="width:100%;background:var(--green)"></div></span>
+      <span class="phase-badge badge-done">已完成</span>
     </div>
     <div class="phase-body"><div class="phase-body-inner">
       <p style="color:var(--text2);font-size:14px;margin-bottom:16px">覆盖更多 llama.cpp 参数，加入实时资源监控。</p>
@@ -593,12 +593,12 @@
   <div class="phase" data-phase="3">
     <div class="phase-header" onclick="togglePhase(this)">
       <span class="arrow">▶</span>
-      <span class="phase-title">第三阶段：多模型管理与自动化</span>
+      <span class="phase-title">第三阶段：多模型管理与下载</span>
       <span class="phase-progress"><div class="fill" style="width:0%;background:var(--text2)"></div></span>
       <span class="phase-badge badge-todo">待开始</span>
     </div>
     <div class="phase-body"><div class="phase-body-inner">
-      <p style="color:var(--text2);font-size:14px;margin-bottom:16px">支持多模型切换、模型下载、开机自启等。</p>
+      <p style="color:var(--text2);font-size:14px;margin-bottom:16px">支持多模型切换、模型下载。</p>
 
       <div class="section">
         <div class="section-title">3.1 多模型管理</div>
@@ -620,16 +620,7 @@
       </div>
 
       <div class="section">
-        <div class="section-title">3.3 自动化</div>
-        <ul class="checklist">
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">开机自启选项（写 Windows 启动项或任务计划）</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">崩溃自动重启（可配置重试次数和间隔）</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">空闲自动休眠（<code>--sleep-idle-seconds</code>）</span></li>
-        </ul>
-      </div>
-
-      <div class="section">
-        <div class="section-title">3.4 托盘模式</div>
+        <div class="section-title">3.3 托盘模式 <span style="color:var(--yellow);font-size:12px">（依赖第三阶段 GUI 重构）</span></div>
         <ul class="checklist">
           <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">最小化到系统托盘</span></li>
           <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">托盘图标显示运行状态（绿/灰）</span></li>
@@ -642,7 +633,7 @@
         <ul class="checklist">
           <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">多模型切换流畅，不丢参数</span></li>
           <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">远程下载模型成功</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">托盘模式可用</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">托盘模式（3.3）待第四阶段 GUI 重构后验收</span></li>
         </ul>
       </div>
     </div></div>
@@ -652,14 +643,65 @@
   <div class="phase" data-phase="4">
     <div class="phase-header" onclick="togglePhase(this)">
       <span class="arrow">▶</span>
-      <span class="phase-title">第四阶段：用户体验优化</span>
+      <span class="phase-title">第四阶段：正式 GUI 重构</span>
+      <span class="phase-progress"><div class="fill" style="width:0%;background:var(--text2)"></div></span>
+      <span class="phase-badge badge-todo">待开始</span>
+    </div>
+    <div class="phase-body"><div class="phase-body-inner">
+      <p style="color:var(--text2);font-size:14px;margin-bottom:16px">当前 TUI（Textual）满足核心功能验证需求，但存在托盘、原生窗口、系统集成等限制。本阶段将迁移至桌面 GUI 框架，保留全部已有功能并解锁系统级特性。</p>
+
+      <div class="section">
+        <div class="section-title">4.1 框架选型与迁移</div>
+        <ul class="checklist">
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">选定 GUI 框架（候选：PyQt6 / PySide6 / wxPython）</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">将现有 core/ 逻辑层零改动复用（与 UI 解耦）</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">重新实现所有 TUI 面板为 GUI 组件</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">保留 config.yaml 配置兼容性</span></li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">4.2 系统集成</div>
+        <ul class="checklist">
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">系统托盘图标（状态显示 + 右键菜单）</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">原生窗口最小化/还原</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">开机自启（注册表 / 任务计划）</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">打包为单文件 .exe（PyInstaller）</span></li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">4.3 UI 体验提升</div>
+        <ul class="checklist">
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">原生文件/目录选择对话框</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">深色/浅色主题跟随系统</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">窗口大小记忆与恢复</span></li>
+        </ul>
+      </div>
+
+      <div class="acceptance">
+        <h4>验收标准</h4>
+        <ul class="checklist">
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">所有第一至三阶段功能在新 GUI 下正常运行</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">托盘模式（3.3）可用</span></li>
+          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">可打包为独立 .exe 分发</span></li>
+        </ul>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 第五阶段 -->
+  <div class="phase" data-phase="5">
+    <div class="phase-header" onclick="togglePhase(this)">
+      <span class="arrow">▶</span>
+      <span class="phase-title">第五阶段：用户体验优化</span>
       <span class="phase-progress"><div class="fill" style="width:0%;background:var(--text2)"></div></span>
       <span class="phase-badge badge-todo">待开始</span>
     </div>
     <div class="phase-body"><div class="phase-body-inner">
 
       <div class="section">
-        <div class="section-title">4.1 首次使用引导</div>
+        <div class="section-title">5.1 首次使用引导</div>
         <ul class="checklist">
           <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">检测 llama.cpp 是否安装，未安装时引导下载</span></li>
           <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">首次使用走一遍 3 步引导：选模型 → 调参数 → 启动</span></li>
@@ -667,7 +709,7 @@
       </div>
 
       <div class="section">
-        <div class="section-title">4.2 错误诊断</div>
+        <div class="section-title">5.2 错误诊断</div>
         <ul class="checklist">
           <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">常见错误自动识别并给出中文建议</span></li>
           <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">一键复制诊断信息用于反馈</span></li>
@@ -675,7 +717,7 @@
       </div>
 
       <div class="section">
-        <div class="section-title">4.3 国际化与可访问性</div>
+        <div class="section-title">5.3 国际化与可访问性</div>
         <ul class="checklist">
           <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">界面语言中/英切换</span></li>
           <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">页面字体大小可调</span></li>
@@ -796,9 +838,10 @@
     const grid = document.getElementById('progress-grid');
     const phases = [
       { name: '第一阶段', el: document.querySelector('[data-phase="1"]'), color: 'var(--green)' },
-      { name: '第二阶段', el: document.querySelector('[data-phase="2"]'), color: 'var(--yellow)' },
+      { name: '第二阶段', el: document.querySelector('[data-phase="2"]'), color: 'var(--green)' },
       { name: '第三阶段', el: document.querySelector('[data-phase="3"]'), color: 'var(--text2)' },
       { name: '第四阶段', el: document.querySelector('[data-phase="4"]'), color: 'var(--text2)' },
+      { name: '第五阶段', el: document.querySelector('[data-phase="5"]'), color: 'var(--text2)' },
     ];
     grid.innerHTML = phases.map(p => {
       const items = p.el.querySelectorAll('.checklist li');

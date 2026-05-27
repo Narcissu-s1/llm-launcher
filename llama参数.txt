@@ -1,0 +1,136 @@
+参数很多，按用途分组过一遍。
+
+---
+
+### 一、核心参数（最常用）
+
+| 参数 | 默认 | 作用 |
+|------|------|------|
+| `-m`, `--model` | 必填 | 模型文件路径 |
+| `-hf`, `--hf-repo` | - | **直接从 HuggingFace 下载** + 自动选 mmproj |
+| `-c`, `--ctx-size` | 0（模型元数据） | 上下文窗口 token 数 |
+| `-np`, `--parallel` | -1（auto） | 并发 slot 数 |
+| `-cb`, `--cont-batching` | 开启 | 动态批处理 |
+| `-ngl`, `--n-gpu-layers` | auto | 放 GPU 的层数 |
+| `--host` | 127.0.0.1 | 监听地址 |
+| `--port` | 8080 | 监听端口 |
+| `--api-key` | 无 | API 密钥验证 |
+
+---
+
+### 二、多模态
+
+| 参数 | 作用 |
+|------|------|
+| `--mmproj` | 视觉投影 GGUF 文件路径（-hf 模式自动下） |
+| `--no-mmproj` | 禁用视觉（单纯当 LLM 用） |
+| `--mmproj-offload` / `--no-mmproj-offload` | 视觉编码器放不放 GPU |
+| `--image-min-tokens` | 每张图最少视觉 token（动态分辨率用） |
+| `--image-max-tokens` | 每张图最多视觉 token |
+| `-mv`, `--model-vocoder` | TTS 语音生成模型 |
+
+---
+
+### 三、KV Cache 与显存
+
+| 参数 | 默认 | 作用 |
+|------|------|------|
+| `-ctk`, `--cache-type-k` | f16 | K cache 量化类型（q8_0/q4_0 省显存） |
+| `-ctv`, `--cache-type-v` | f16 | V cache 量化类型 |
+| `-kvu`, `--kv-unified` | auto 时开启 | 统一 KV 池，多 slot 共享 |
+| `--no-kv-offload` | - | KV 不放 GPU（省显存） |
+| `-cram`, `--cache-ram` | 8192 MiB | prompt cache 上限 |
+| `--cache-prompt` | 开启 | 缓存相同前缀的 prompt |
+| `--cache-idle-slots` | 开启 | 空闲 slot 的 KV 自动存盘复活 |
+| `--slot-save-path` | - | 保存 slot KV 到文件 |
+| `-fa`, `--flash-attn` | auto | Flash Attention（省显存加速） |
+
+---
+
+### 四、推理速度
+
+| 参数 | 默认 | 作用 |
+|------|------|------|
+| `-t`, `--threads` | -1（CPU 核心数） | 生成阶段的 CPU 线程数 |
+| `-tb`, `--threads-batch` | =threads | prompt 处理阶段的线程数 |
+| `-b`, `--batch-size` | 2048 | 逻辑批大小 |
+| `-ub`, `--ubatch-size` | 512 | 物理批大小（GPU 一次处理上限） |
+| `--threads-http` | -1 | HTTP 处理线程数 |
+| `--no-warmup` | - | 跳过空跑预热 |
+
+---
+
+### 五、采样参数（控制输出风格）
+
+| 参数 | 默认 | 作用 |
+|------|------|------|
+| `--temp` | 0.80 | 温度（越高越随机） |
+| `--top-k` | 40 | Top-K 采样 |
+| `--top-p` | 0.95 | 核采样 |
+| `--min-p` | 0.05 | 最小概率阈值 |
+| `--repeat-penalty` | 1.0 | 重复惩罚 |
+| `--dry-multiplier` | 0.0 | DRY 重复检测 |
+| `-s`, `--seed` | -1（随机） | 随机种子 |
+| `-n`, `--n-predict` | -1（无限） | 最大生成长度 |
+| `--ignore-eos` | 关闭 | 忽略结束符持续生成 |
+| `--grammar` / `--json-schema` | - | 约束输出格式 |
+
+---
+
+### 六、思考/推理模式
+
+| 参数 | 默认 | 作用 |
+|------|------|------|
+| `-rea`, `--reasoning` | auto | 是否启用思考：on/off/auto |
+| `--reasoning-format` | auto | 思考内容的返回格式：none/deepseek/deepseek-legacy |
+| `--reasoning-budget` | -1（不限制） | 思考 token 预算（0 = 不思考） |
+| `--reasoning-budget-message` | - | 预算用完时注入的提示语 |
+
+---
+
+### 七、安全与访问控制
+
+| 参数 | 作用 |
+|------|------|
+| `--api-key` | API 密钥（逗号分隔多个） |
+| `--api-key-file` | 从文件读密钥列表 |
+| `--ssl-key-file` / `--ssl-cert-file` | 启用 HTTPS |
+| `--host 127.0.0.1` | 仅本机（最安全） |
+| `--timeout` | 超时秒数（默认 600） |
+| `--metrics` | 开启 Prometheus 监控端点 |
+| `--slots` / `--no-slots` | 是否暴露 /slots 监控端点 |
+
+---
+
+### 八、高级功能
+
+| 参数 | 作用 |
+|------|------|
+| `--lora` | 加载 LoRA 微调适配器 |
+| `--control-vector` | 加载控制向量 |
+| `--tools` | 内置工具（读写文件、执行命令、grep 等） |
+| `--embedding` | 纯嵌入模式 |
+| `--rerank` | 重排序端点 |
+| `--spec-draft-model` | 推测解码草稿模型（加速推理） |
+| `--models-dir` / `--models-max` | 路由服务器模式（多模型） |
+| `--chat-template` | 自定义聊天模板 |
+| `--rope-scale` | RoPE 缩放（扩展上下文） |
+
+---
+
+### 你当前脚本里用到的 vs 可以加的
+
+```
+已用:
+  -m, --mmproj, --host, --port, -c, --n-gpu-layers, -np
+
+值得加到脚本的:
+  --api-key             加个简单的密钥防止局域网别人乱连
+  -ctk q8_0             把 KV cache 从 f16 量化到 q8_0，能省不少显存
+  --no-mmproj-offload   视觉编码器留 CPU，给 LLM 腾显存
+  --reasoning off        关掉思考模式，首 token 秒出
+  --temp 0.7            调低温度，回复更稳定
+  --media-path           允许直接传本地图片路径
+```
+
+需要我把哪些加到启动脚本的预设里？

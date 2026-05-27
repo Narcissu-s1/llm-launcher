@@ -1,12 +1,128 @@
 model:
-  last_path: D:\models\lmstudio\hugface\MiniCPM5-1B-Q8_0\MiniCPM5-1B-Q8_0.gguf
+  last_path: D:\models\lmstudio\hugface\bitcpm4-1b-tq2_0\bitcpm4-1b-tq2_0.gguf
   mmproj_path: ''
 server:
   port: 8080
   host: 127.0.0.1
-  context_size: 4096
+  context_size: 32768
   n_gpu_layers: 9999
-  parallel: 1
+  parallel: 8
+  cache_type_k: f16
+  cache_type_v: f16
+  kv_unified: true
+  no_kv_offload: false
+  flash_attn: false
+  cache_prompt: true
+  cache_idle_slots: true
+  cache_ram: 8192
+  threads: -1
+  threads_batch: -1
+  batch_size: 2048
+  ubatch_size: 512
+  threads_http: -1
+  no_warmup: false
+  temp: 0.8
+  top_k: 40
+  top_p: 0.95
+  min_p: 0.05
+  repeat_penalty: 1.0
+  seed: -1
+  n_predict: -1
+  ignore_eos: false
+  reasoning: auto
+  reasoning_format: auto
+  reasoning_budget: -1
+  mmproj_offload: true
+  image_min_tokens: 0
+  image_max_tokens: 0
+  api_key: ''
+  timeout: 600
+  metrics: false
+  slots: true
 app:
-  auto_open_browser: true
+  auto_open_browser: false
   llama_cpp_dir: D:\tools\llama.cpp
+presets: {}
+model_presets:
+  Hy-MT2-1.8B-Q4_K_M:
+    model_path: D:\models\lmstudio\hugface\Hy-MT2-1.8B-Q4_K_M\Hy-MT2-1.8B-Q4_K_M.gguf
+    mmproj_path: ''
+    port: 8080
+    host: 127.0.0.1
+    context_size: 32768
+    n_gpu_layers: 9999
+    parallel: 8
+    auto_open_browser: false
+    cache_type_k: f16
+    cache_type_v: f16
+    kv_unified: true
+    no_kv_offload: false
+    flash_attn: false
+    cache_prompt: true
+    cache_idle_slots: true
+    cache_ram: 8192
+    threads: -1
+    threads_batch: -1
+    batch_size: 2048
+    ubatch_size: 512
+    threads_http: -1
+    no_warmup: false
+    temp: 0.8
+    top_k: 40
+    top_p: 0.95
+    min_p: 0.05
+    repeat_penalty: 1.0
+    seed: -1
+    n_predict: -1
+    ignore_eos: false
+    reasoning: auto
+    reasoning_format: auto
+    reasoning_budget: -1
+    mmproj_offload: true
+    image_min_tokens: 0
+    image_max_tokens: 0
+    api_key: ''
+    timeout: 600
+    metrics: false
+    slots: true
+  bitcpm4-1b-tq2_0:
+    model_path: D:\models\lmstudio\hugface\bitcpm4-3b-tq2_0\bitcpm4-3b-tq2_0.gguf
+    mmproj_path: ''
+    port: 8080
+    host: 127.0.0.1
+    context_size: 32768
+    n_gpu_layers: 9999
+    parallel: 8
+    auto_open_browser: false
+    cache_type_k: f16
+    cache_type_v: f16
+    kv_unified: true
+    no_kv_offload: false
+    flash_attn: false
+    cache_prompt: true
+    cache_idle_slots: true
+    cache_ram: 8192
+    threads: -1
+    threads_batch: -1
+    batch_size: 2048
+    ubatch_size: 512
+    threads_http: -1
+    no_warmup: false
+    temp: 0.8
+    top_k: 40
+    top_p: 0.95
+    min_p: 0.05
+    repeat_penalty: 1.0
+    seed: -1
+    n_predict: -1
+    ignore_eos: false
+    reasoning: auto
+    reasoning_format: auto
+    reasoning_budget: -1
+    mmproj_offload: true
+    image_min_tokens: 0
+    image_max_tokens: 0
+    api_key: ''
+    timeout: 600
+    metrics: false
+    slots: true

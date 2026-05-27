@@ -64,9 +64,10 @@ DEFAULT_CONFIG = {
         "slots": True,           # 启用 /slots 端点
     },
     "app": {
-        "auto_open_browser": True,  # 启动后自动打开浏览器
+        "auto_open_browser": False,  # 启动后自动打开浏览器
         "llama_cpp_dir": "",        # llama.cpp 所在目录（含 dll 等，空则自动搜索）
     },
+    "presets": {},  # 预设：{name: {server params...}}
 }
 
 
@@ -180,3 +181,45 @@ class ConfigStore:
             else:
                 result[key] = value
         return result
+
+    def get_presets(self) -> dict:
+        """返回所有预设 {name: params_dict}"""
+        with self._lock:
+            if self._data is None:
+                self._load_unlocked()
+            return deepcopy(self._data.get("presets", {}))
+
+    def save_preset(self, name: str, params: dict) -> None:
+        """保存或覆盖一个预设"""
+        with self._lock:
+            if self._data is None:
+                self._load_unlocked()
+            if "presets" not in self._data:
+                self._data["presets"] = {}
+            self._data["presets"][name] = deepcopy(params)
+            self._save_unlocked()
+
+    def delete_preset(self, name: str) -> None:
+        """删除一个预设，不存在时静默忽略"""
+        with self._lock:
+            if self._data is None:
+                self._load_unlocked()
+            self._data.get("presets", {}).pop(name, None)
+            self._save_unlocked()
+
+    def get_model_preset(self, model_name: str) -> dict:
+        """返回指定模型的专属预设，不存在时返回空字典"""
+        with self._lock:
+            if self._data is None:
+                self._load_unlocked()
+            return deepcopy(self._data.get("model_presets", {}).get(model_name, {}))
+
+    def save_model_preset(self, model_name: str, params: dict) -> None:
+        """保存模型专属预设"""
+        with self._lock:
+            if self._data is None:
+                self._load_unlocked()
+            if "model_presets" not in self._data:
+                self._data["model_presets"] = {}
+            self._data["model_presets"][model_name] = deepcopy(params)
+            self._save_unlocked()
