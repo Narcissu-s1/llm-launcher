@@ -19,7 +19,7 @@ class ModelLibraryPanel(QWidget):
         row = QHBoxLayout()
         self._dir_input = QLineEdit()
         self._dir_input.setReadOnly(True)
-        self._dir_input.setText(config.get("app.model_dir", ""))
+        self._dir_input.setText(config.get("app.model_dir") or "")
         btn_browse = QPushButton("选择目录")
         btn_scan = QPushButton("扫描")
         btn_browse.clicked.connect(self._browse)

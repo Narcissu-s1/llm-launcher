@@ -70,8 +70,8 @@ class ChatPanel(QWidget):
         self._input.clear()
         self._messages.append({"role": "user", "content": text})
         self._display.appendPlainText(f"\nUser: {text}\nAssistant: ")
-        port = self._config.get("server.port", 8080)
-        api_key = self._config.get("server.api_key", "")
+        port = self._config.get("server.port") or 8080
+        api_key = self._config.get("server.api_key") or ""
         worker = _ChatWorker(port, list(self._messages), api_key)
         worker.token.connect(lambda t: self._display.insertPlainText(t))
         worker.done.connect(lambda: self._messages.append(

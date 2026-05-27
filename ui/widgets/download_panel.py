@@ -63,7 +63,7 @@ class DownloadPanel(QWidget):
         layout.addLayout(row1)
 
         row2 = QHBoxLayout()
-        self._dest = QLineEdit(); self._dest.setText(config.get("app.model_dir", ""))
+        self._dest = QLineEdit(); self._dest.setText(config.get("app.model_dir") or "")
         self._dest.setPlaceholderText("下载目录")
         btn_dest = QPushButton("选择"); btn_dest.clicked.connect(self._browse_dest)
         btn_scan = QPushButton("扫描"); btn_scan.setObjectName("btnPrimary"); btn_scan.clicked.connect(self._scan)
