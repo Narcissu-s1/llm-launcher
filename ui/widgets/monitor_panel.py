@@ -28,6 +28,7 @@ class MonitorPanel(Horizontal):
 
     def compose(self) -> ComposeResult:
         yield Static("GPU: --", id="mon_gpu")
+        yield Static("CPU: --", id="mon_cpu")
         yield Static("进程: --", id="mon_ram")
         yield Static("Slots: --/--", id="mon_slots")
 
@@ -75,6 +76,7 @@ class MonitorPanel(Horizontal):
     def _collect_and_update(self) -> None:
         """采集数据并更新 UI"""
         gpu_text = self._collect_gpu()
+        cpu_text = self._collect_cpu()
         ram_text = self._collect_ram()
         slots_text = self._collect_slots()
 
@@ -82,6 +84,7 @@ class MonitorPanel(Horizontal):
             try:
                 if gpu_text:
                     self.query_one("#mon_gpu", Static).update(gpu_text)
+                self.query_one("#mon_cpu", Static).update(cpu_text)
                 self.query_one("#mon_ram", Static).update(ram_text)
                 self.query_one("#mon_slots", Static).update(slots_text)
             except Exception:
@@ -107,6 +110,17 @@ class MonitorPanel(Horizontal):
         except Exception:
             return "GPU: --"
 
+    def _collect_cpu(self) -> str:
+        """采集 llama-server 进程 CPU 占用"""
+        if not self._pid:
+            return "CPU: --"
+        try:
+            proc = psutil.Process(self._pid)
+            cpu_pct = proc.cpu_percent(interval=0)
+            return f"CPU: {cpu_pct:.1f}%"
+        except psutil.NoSuchProcess:
+            return "CPU: --"
+
     def _collect_ram(self) -> str:
         """采集 llama-server 进程内存"""
         if not self._pid:
@@ -117,12 +131,6 @@ class MonitorPanel(Horizontal):
             return f"进程: {self._format_bytes(rss)}"
         except psutil.NoSuchProcess:
             return "进程: --"
-        try:
-            proc = psutil.Process(self._pid)
-            rss = proc.memory_info().rss
-            return f"RAM: {self._format_bytes(rss)}"
-        except psutil.NoSuchProcess:
-            return "RAM: --"
 
     def _collect_slots(self) -> str:
         """采集 Slots 信息"""
@@ -131,7 +139,10 @@ class MonitorPanel(Horizontal):
             req = urllib.request.Request(url, method="GET")
             with urllib.request.urlopen(req, timeout=1) as resp:
                 data = json.loads(resp.read())
-                active = sum(1 for s in data if s.get("state", 0) != 0)
+                active = sum(
+                    1 for s in data
+                    if s.get("state") not in (0, "idle")
+                )
                 total = len(data)
                 return f"Slots: {active}/{total}"
         except Exception:
@@ -140,8 +151,9 @@ class MonitorPanel(Horizontal):
     @staticmethod
     def _format_bytes(n: int) -> str:
         """格式化字节数"""
+        value = float(n)
         for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if n < 1024:
-                return f"{n:.1f} {unit}"
-            n = n // 1024
-        return f"{n:.1f} PB"
+            if value < 1024:
+                return f"{value:.2f} {unit}"
+            value /= 1024
+        return f"{value:.2f} PB"

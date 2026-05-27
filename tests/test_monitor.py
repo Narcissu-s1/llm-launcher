@@ -20,6 +20,6 @@ def test_格式化内存():
     """_format_bytes 应正确格式化"""
     from ui.widgets.monitor_panel import MonitorPanel
 
-    assert MonitorPanel._format_bytes(1024) == "1.0 KB"
-    assert MonitorPanel._format_bytes(1024 * 1024) == "1.0 MB"
-    assert MonitorPanel._format_bytes(1024 * 1024 * 1024) == "1.0 GB"
+    assert MonitorPanel._format_bytes(1024) == "1.00 KB"
+    assert MonitorPanel._format_bytes(1024 * 1024) == "1.00 MB"
+    assert MonitorPanel._format_bytes(1024 * 1024 * 1024) == "1.00 GB"

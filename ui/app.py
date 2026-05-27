@@ -148,6 +148,10 @@ LogPanel {
     width: 1fr;
 }
 
+#mon_cpu {
+    width: 1fr;
+}
+
 #mon_ram {
     width: 1fr;
 }
