@@ -1,6 +1,7 @@
 # core/process_manager.py
 """llama-server 进程生命周期管理：启动、停止、存活检测"""
 
+import atexit
 import logging
 import os
 import socket
@@ -58,6 +59,7 @@ class ProcessSupervisor:
         self._poll_thread: threading.Thread | None = None
         self._poll_stop = threading.Event()
         self._last_logs: deque[str] = deque(maxlen=self._LOG_BUFFER_SIZE)
+        atexit.register(self._force_kill_on_exit)
 
     def status(self) -> ProcessStatus:
         """获取当前进程状态"""
@@ -145,6 +147,14 @@ class ProcessSupervisor:
             self._pid = None
             self._process = None
             self._set_status(ProcessStatus.STOPPED)
+
+    def _force_kill_on_exit(self) -> None:
+        """atexit 回调：Python 退出时强杀子进程，防止孤儿进程占用端口"""
+        if self._process is not None:
+            try:
+                self._process.kill()
+            except Exception:
+                pass
 
     def _check_port(self, port: int) -> None:
         """检查端口是否可用（socket bind 探测）

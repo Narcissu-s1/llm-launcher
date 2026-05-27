@@ -31,7 +31,7 @@ class ModelLibraryPanel(QWidget):
         self._table.setHorizontalHeaderLabels(["文件名", "大小", "量化", "参数量", "架构"])
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.horizontalHeader().setStretchLastSection(False)
-        self._table.setColumnWidth(0, 260)  # 文件名列加宽
+        self._table.setColumnWidth(0, 320)  # 文件名列加宽
         self._table.setColumnWidth(1, 70)
         self._table.setColumnWidth(2, 80)
         self._table.setColumnWidth(3, 70)

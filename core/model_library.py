@@ -2,6 +2,7 @@
 """扫描目录下的 GGUF 模型文件，解析基本元数据"""
 
 import os
+import re
 import struct
 from dataclasses import dataclass, field
 
@@ -97,7 +98,7 @@ def _parse_gguf(path: str) -> ModelInfo:
         # 量化类型：从文件名推断（最可靠）
         info.quant_type = _quant_from_name(name)
 
-        # 参数量：优先用 arch-specific key，兜底遍历所有 .parameter_count key
+        # 参数量：优先用 arch-specific key，兜底遍历所有 .parameter_count key，最终从文件名推断
         param_key = f"{arch}.parameter_count" if arch else ""
         if param_key and param_key in meta:
             info.param_count = int(meta[param_key])
@@ -108,6 +109,9 @@ def _parse_gguf(path: str) -> ModelInfo:
                 if k.endswith(".parameter_count") and isinstance(v, int) and v > 0:
                     info.param_count = v
                     break
+        # 仍为 0 则从文件名推断（如 7B / 13B / 70B / 0.5B 等）
+        if info.param_count == 0:
+            info.param_count = _param_count_from_name(name)
 
     except Exception:
         pass
@@ -165,6 +169,20 @@ def _quant_from_name(name: str) -> str:
         if q in upper:
             return q
     return "未知"
+
+
+def _param_count_from_name(name: str) -> int:
+    """从文件名推断参数量，如 'Qwen2.5-7B-...' → 7_000_000_000"""
+    # 匹配 0.5B / 1.5B / 7B / 13B / 72B / 2_6B（下划线当小数点）等格式
+    m = re.search(r"[\-_.](\d+(?:[._]\d+)?)[Bb]", name)
+    if m:
+        val_str = m.group(1).replace("_", ".")
+        try:
+            val = float(val_str)
+            return int(val * 1_000_000_000)
+        except ValueError:
+            pass
+    return 0
 
 
 def format_size(n: int) -> str:

@@ -255,6 +255,8 @@ class ControlPanel(QWidget):
             return
         try:
             self._supervisor.start(params)
+            # 写入实际端口，聊天面板等组件从 config 读取时能获得正确值
+            self._config.set("server.port", params["port"])
         except PortInUseError as e:
             QMessageBox.warning(self, "端口冲突", str(e))
         except ProcessError as e:
