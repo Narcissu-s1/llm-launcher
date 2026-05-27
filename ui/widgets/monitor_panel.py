@@ -25,11 +25,12 @@ class MonitorPanel(Horizontal):
         self._thread: threading.Thread | None = None
         self._pid: int | None = None
         self._port: int = 8080
+        self._proc: psutil.Process | None = None
 
     def compose(self) -> ComposeResult:
         yield Static("GPU: --", id="mon_gpu")
         yield Static("CPU: --", id="mon_cpu")
-        yield Static("进程: --", id="mon_ram")
+        yield Static("内存: --", id="mon_ram")
         yield Static("Slots: --/--", id="mon_slots")
 
     def _detect_gpu(self) -> None:
@@ -47,6 +48,11 @@ class MonitorPanel(Horizontal):
         """启动监控轮询"""
         self._pid = pid
         self._port = port
+        try:
+            self._proc = psutil.Process(pid)
+            self._proc.cpu_percent()
+        except psutil.NoSuchProcess:
+            self._proc = None
 
         if self._gpu_available is None:
             self._detect_gpu()
@@ -111,26 +117,29 @@ class MonitorPanel(Horizontal):
             return "GPU: --"
 
     def _collect_cpu(self) -> str:
-        """采集 llama-server 进程 CPU 占用"""
-        if not self._pid:
-            return "CPU: --"
-        try:
-            proc = psutil.Process(self._pid)
-            cpu_pct = proc.cpu_percent(interval=0)
-            return f"CPU: {cpu_pct:.1f}%"
-        except psutil.NoSuchProcess:
-            return "CPU: --"
+        """采集系统 CPU 和进程 CPU"""
+        sys_cpu = psutil.cpu_percent(interval=0)
+        proc_cpu = 0.0
+        if self._proc:
+            try:
+                proc_cpu = self._proc.cpu_percent()
+            except psutil.NoSuchProcess:
+                self._proc = None
+        return f"CPU: {sys_cpu:.0f}%({proc_cpu:.0f}%)"
 
     def _collect_ram(self) -> str:
-        """采集 llama-server 进程内存"""
-        if not self._pid:
-            return "进程: --"
-        try:
-            proc = psutil.Process(self._pid)
-            rss = proc.memory_info().rss
-            return f"进程: {self._format_bytes(rss)}"
-        except psutil.NoSuchProcess:
-            return "进程: --"
+        """采集系统内存和进程内存"""
+        vm = psutil.virtual_memory()
+        sys_used = self._format_bytes(vm.used)
+        sys_total = self._format_bytes(vm.total)
+        proc_text = ""
+        if self._proc:
+            try:
+                rss = self._proc.memory_info().rss
+                proc_text = f"({self._format_bytes(rss)})"
+            except psutil.NoSuchProcess:
+                self._proc = None
+        return f"内存: {sys_used}/{sys_total}{proc_text}"
 
     def _collect_slots(self) -> str:
         """采集 Slots 信息"""
