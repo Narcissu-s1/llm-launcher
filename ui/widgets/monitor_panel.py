@@ -28,8 +28,8 @@ class MonitorPanel(Horizontal):
 
     def compose(self) -> ComposeResult:
         yield Static("GPU: --", id="mon_gpu")
-        yield Static("RAM: --", id="mon_ram")
-        yield Static("Slots: --/--  请求: --", id="mon_slots")
+        yield Static("进程: --", id="mon_ram")
+        yield Static("Slots: --/--", id="mon_slots")
 
     def _detect_gpu(self) -> None:
         """检测 nvidia-smi 是否可用"""
@@ -108,9 +108,15 @@ class MonitorPanel(Horizontal):
             return "GPU: --"
 
     def _collect_ram(self) -> str:
-        """采集进程内存"""
+        """采集 llama-server 进程内存"""
         if not self._pid:
-            return "RAM: --"
+            return "进程: --"
+        try:
+            proc = psutil.Process(self._pid)
+            rss = proc.memory_info().rss
+            return f"进程: {self._format_bytes(rss)}"
+        except psutil.NoSuchProcess:
+            return "进程: --"
         try:
             proc = psutil.Process(self._pid)
             rss = proc.memory_info().rss
@@ -127,9 +133,9 @@ class MonitorPanel(Horizontal):
                 data = json.loads(resp.read())
                 active = sum(1 for s in data if s.get("state", 0) != 0)
                 total = len(data)
-                return f"Slots: {active}/{total}  请求: {active}"
+                return f"Slots: {active}/{total}"
         except Exception:
-            return "Slots: --/--  请求: --"
+            return "Slots: --/--"
 
     @staticmethod
     def _format_bytes(n: int) -> str:
