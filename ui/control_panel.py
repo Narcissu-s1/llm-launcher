@@ -1,544 +1,341 @@
 # ui/control_panel.py
-"""左侧控制面板：模型选择、参数配置、启停按钮"""
+"""左侧控制面板：模型选择、参数配置、预设管理、启停按钮"""
 
 import json
+import logging
 import os
-import string
 import sys
+import winreg
 
-from textual.app import ComposeResult
-from textual.containers import Vertical, Horizontal
-from textual.widgets import (
-    Button, Collapsible, Input, Label, ListView, ListItem, Select, Static, Switch,
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
+    QPushButton, QComboBox, QSpinBox, QGroupBox, QFormLayout,
+    QFileDialog, QScrollArea, QSizePolicy, QCheckBox,
+    QMessageBox, QInputDialog, QFrame,
 )
-from textual.screen import ModalScreen
+from PySide6.QtCore import Signal
+
+from core.config import ConfigStore
+from core.process_manager import ProcessSupervisor, PortInUseError, ProcessError
+from ui.confirm_dialog import ConfirmDialog
 from ui.widgets.param_groups import (
     KVCacheParams, InferenceParams, SamplingParams,
     ReasoningParams, MultimodalParams, SecurityParams,
 )
 
+logger = logging.getLogger(__name__)
 
-class PresetNameDialog(ModalScreen[str | None]):
-    """输入预设名称的弹窗，返回名称字符串或 None（取消）"""
+# param_groups 返回的键名 → process_manager 期望的键名
+_REMAP = {
+    "ctk": "cache_type_k",
+    "ctv": "cache_type_v",
+    "kvu": "kv_unified",
+    "temperature": "temp",
+}
+_REMAP_BACK = {v: k for k, v in _REMAP.items()}
 
-    def __init__(self, existing_names: list[str], default: str = ""):
+
+class ControlPanel(QWidget):
+    set_model_path = Signal(str)  # 接收 ModelLibraryPanel.switch_model 信号
+
+    def __init__(self, config: ConfigStore, supervisor: ProcessSupervisor):
         super().__init__()
-        self._existing = existing_names
-        self._default = default
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="preset-dialog"):
-            yield Label("预设名称：")
-            yield Input(value=self._default, id="preset_name_input", placeholder="输入名称...")
-            with Horizontal():
-                yield Button("确认", id="btn_preset_ok", variant="primary")
-                yield Button("取消", id="btn_preset_cancel", variant="default")
-
-    def on_mount(self) -> None:
-        self.query_one("#preset_name_input", Input).focus()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn_preset_cancel":
-            self.dismiss(None)
-        elif event.button.id == "btn_preset_ok":
-            self._confirm()
-
-    def on_input_submitted(self, _: Input.Submitted) -> None:
-        self._confirm()
-
-    def key_escape(self) -> None:
-        self.dismiss(None)
-
-    def _confirm(self) -> None:
-        name = self.query_one("#preset_name_input", Input).value.strip()
-        if name:
-            self.dismiss(name)
-
-
-class JsonFileBrowser(ModalScreen[str | None]):
-    """选择 JSON 文件的弹窗（用于导入预设）"""
-
-    def __init__(self, start_dir: str = "."):
-        super().__init__()
-        self._current_dir = os.path.abspath(
-            start_dir if os.path.isdir(start_dir) else "."
-        )
-
-    def compose(self) -> ComposeResult:
-        with Vertical():
-            yield Label(f"当前目录: {self._current_dir}", id="jbrowser-path")
-            yield ListView(id="json_file_list")
-            with Horizontal():
-                yield Button("上级目录", id="btn_jparent", variant="primary")
-                yield Button("取消", id="btn_jcancel", variant="default")
-
-    def on_mount(self) -> None:
-        self._refresh_list()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn_jcancel":
-            self.dismiss(None)
-        elif event.button.id == "btn_jparent":
-            new_dir = _navigate_to_parent(self._current_dir)
-            if new_dir != self._current_dir:
-                self._current_dir = new_dir
-            self._refresh_list()
-
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        if event.item is None or event.item.name is None:
-            return
-        choice = event.item.name
-        if choice == "..":
-            new_dir = _navigate_to_parent(self._current_dir)
-            if new_dir != self._current_dir:
-                self._current_dir = new_dir
-            self._refresh_list()
-            return
-        if choice.endswith(":\\") and os.path.isdir(choice):
-            self._current_dir = choice
-            self._refresh_list()
-            return
-        full_path = os.path.join(self._current_dir, choice)
-        if os.path.isdir(full_path):
-            self._current_dir = full_path
-            self._refresh_list()
-        elif choice.endswith(".json"):
-            self.dismiss(full_path)
-
-    def key_escape(self) -> None:
-        self.dismiss(None)
-
-    def _refresh_list(self) -> None:
-        lst = self.query_one("#json_file_list", ListView)
-        self.query_one("#jbrowser-path", Label).update(f"当前目录: {self._current_dir}")
-        lst.clear()
-        items = []
-        if _is_filesystem_root(self._current_dir):
-            for drive in _get_available_drives():
-                items.append(ListItem(Label(f"💾 {drive}"), name=drive))
-        else:
-            items.append(ListItem(Label("📁 .."), name=".."))
-        try:
-            entries = sorted(os.listdir(self._current_dir))
-        except OSError:
-            lst.extend(items)
-            return
-        for name in entries:
-            if os.path.isdir(os.path.join(self._current_dir, name)):
-                items.append(ListItem(Label(f"📁 {name}"), name=name))
-        for name in entries:
-            if name.endswith(".json"):
-                items.append(ListItem(Label(f"📄 {name}"), name=name))
-        lst.extend(items)
-
-
-def _get_available_drives() -> list[str]:
-    """获取 Windows 上所有可用盘符"""
-    drives = []
-    for letter in string.ascii_uppercase:
-        drive = f"{letter}:\\"
-        if os.path.exists(drive):
-            drives.append(drive)
-    return drives
-
-
-def _is_filesystem_root(path: str) -> bool:
-    """判断是否在文件系统根目录（盘符下）"""
-    return os.path.dirname(path) == path
-
-
-def _navigate_to_parent(current: str) -> str:
-    """返回上级目录，若已在根目录则返回原值"""
-    parent = os.path.dirname(current)
-    return parent if parent != current else current
-
-
-class FileBrowser(ModalScreen[str | None]):
-    """文件浏览器弹窗，用于选择 GGUF 文件
-
-    显示目录列表，「..」返回上级，Enter 进入目录或选中 .gguf 文件
-    """
-
-    def __init__(self, start_dir: str = "."):
-        super().__init__()
-        self._current_dir = os.path.abspath(
-            start_dir if os.path.isdir(start_dir) else "."
-        )
-
-    def compose(self) -> ComposeResult:
-        with Vertical():
-            yield Label(f"当前目录: {self._current_dir}", id="browser-path")
-            yield ListView(id="file_list")
-            with Horizontal(id="browser-actions"):
-                yield Button("上级目录", id="btn_parent", variant="primary")
-                yield Button("取消", id="btn_cancel", variant="default")
-
-    def on_mount(self) -> None:
-        """挂载后加载当前目录内容"""
-        self._refresh_list()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """处理按钮点击"""
-        if event.button.id == "btn_cancel":
-            self.dismiss(None)
-        elif event.button.id == "btn_parent":
-            new_dir = _navigate_to_parent(self._current_dir)
-            if new_dir != self._current_dir:
-                self._current_dir = new_dir
-            self._refresh_list()
-
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        """列表项选中：目录/盘符则进入，.gguf 文件则选中返回"""
-        if event.item is None or event.item.name is None:
-            return
-
-        choice = event.item.name
-        if choice == "..":
-            new_dir = _navigate_to_parent(self._current_dir)
-            if new_dir != self._current_dir:
-                self._current_dir = new_dir
-            self._refresh_list()
-            return
-
-        # 处理盘符切换（如 "D:\"）
-        if choice.endswith(":\\") and os.path.isdir(choice):
-            self._current_dir = choice
-            self._refresh_list()
-            return
-
-        full_path = os.path.join(self._current_dir, choice)
-        if os.path.isdir(full_path):
-            self._current_dir = full_path
-            self._refresh_list()
-        elif choice.endswith(".gguf"):
-            self.dismiss(full_path)
-
-    def key_escape(self) -> None:
-        """Esc 键取消"""
-        self.dismiss(None)
-
-    def _refresh_list(self) -> None:
-        """刷新文件列表"""
-        lst = self.query_one("#file_list", ListView)
-        path_label = self.query_one("#browser-path", Label)
-
-        lst.clear()
-        path_label.update(f"当前目录: {self._current_dir}")
-
-        items = []
-
-        # 根目录时显示可用盘符，否则显示「..」返回上级
-        if _is_filesystem_root(self._current_dir):
-            for drive in _get_available_drives():
-                items.append(ListItem(Label(f"💾 {drive}"), name=drive))
-        else:
-            items.append(ListItem(Label("📁 .."), name=".."))
-
-        try:
-            entries = sorted(os.listdir(self._current_dir))
-        except OSError:
-            lst.extend(items)
-            return
-
-        # 先列出子目录
-        for name in entries:
-            full = os.path.join(self._current_dir, name)
-            if os.path.isdir(full):
-                items.append(ListItem(Label(f"📁 {name}"), name=name))
-
-        # 再列出 .gguf 文件
-        for name in entries:
-            if name.endswith(".gguf"):
-                items.append(ListItem(Label(f"📄 {name}"), name=name))
-
-        lst.extend(items)
-
-
-class DirPicker(ModalScreen[str | None]):
-    """目录选择器弹窗，用于选择 llama.cpp 所在文件夹"""
-
-    def __init__(self, start_dir: str = ".", title: str = "选择目录"):
-        super().__init__()
-        self._title = title
-        self._current_dir = os.path.abspath(
-            start_dir if os.path.isdir(start_dir) else "."
-        )
-
-    def compose(self) -> ComposeResult:
-        with Vertical():
-            yield Label(self._title, id="dir-picker-title")
-            yield Label(f"当前: {self._current_dir}", id="dir-picker-path")
-            yield ListView(id="dir_list")
-            with Horizontal(id="browser-actions"):
-                yield Button("选择此目录", id="btn_select_here", variant="success")
-                yield Button("上级目录", id="btn_parent", variant="primary")
-                yield Button("取消", id="btn_cancel", variant="default")
-
-    def on_mount(self) -> None:
-        self._refresh_list()
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        bid = event.button.id
-        if bid == "btn_cancel":
-            self.dismiss(None)
-        elif bid == "btn_select_here":
-            self.dismiss(self._current_dir)
-        elif bid == "btn_parent":
-            new_dir = _navigate_to_parent(self._current_dir)
-            if new_dir != self._current_dir:
-                self._current_dir = new_dir
-            self._refresh_list()
-
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        if event.item is None or event.item.name is None:
-            return
-        choice = event.item.name
-        if choice == "..":
-            new_dir = _navigate_to_parent(self._current_dir)
-            if new_dir != self._current_dir:
-                self._current_dir = new_dir
-            self._refresh_list()
-            return
-
-        # 处理盘符切换（如 "D:\"）
-        if choice.endswith(":\\") and os.path.isdir(choice):
-            self._current_dir = choice
-            self._refresh_list()
-            return
-
-        full_path = os.path.join(self._current_dir, choice)
-        if os.path.isdir(full_path):
-            self._current_dir = full_path
-            self._refresh_list()
-
-    def key_escape(self) -> None:
-        self.dismiss(None)
-
-    def _refresh_list(self) -> None:
-        lst = self.query_one("#dir_list", ListView)
-        path_label = self.query_one("#dir-picker-path", Label)
-        lst.clear()
-        path_label.update(f"当前: {self._current_dir}")
-
-        items = []
-
-        # 根目录时显示可用盘符，否则显示「..」返回上级
-        if _is_filesystem_root(self._current_dir):
-            for drive in _get_available_drives():
-                items.append(ListItem(Label(f"💾 {drive}"), name=drive))
-        else:
-            items.append(ListItem(Label("📁 .."), name=".."))
-
-        try:
-            entries = sorted(os.listdir(self._current_dir))
-        except OSError:
-            lst.extend(items)
-            return
-
-        for name in entries:
-            full = os.path.join(self._current_dir, name)
-            if os.path.isdir(full):
-                items.append(ListItem(Label(f"📁 {name}"), name=name))
-        lst.extend(items)
-
-
-class ControlPanel(Vertical):
-    """左侧控制面板"""
-
-    _PARAM_WIDGET_CLASSES = [
-        KVCacheParams, InferenceParams, SamplingParams,
-        ReasoningParams, MultimodalParams, SecurityParams,
-    ]
-    """控制面板：左侧栏"""
-
-    def compose(self) -> ComposeResult:
-        # 模型选择区
-        yield Label("模型选择", classes="section-title")
-        with Horizontal(classes="input-row"):
-            yield Input(
-                placeholder="模型文件路径...",
-                id="model_path",
-            )
-            yield Button("浏览", id="btn_browse_model", variant="primary")
-        with Horizontal(classes="input-row"):
-            yield Input(
-                placeholder="mmproj 文件（可选）...",
-                id="mmproj_path",
-            )
-            yield Button("浏览", id="btn_browse_mmproj", variant="default")
-
-        # llama.cpp 目录
-        with Horizontal(classes="input-row"):
-            yield Input(
-                placeholder="llama.cpp 目录（含 dll 等）...",
-                id="llama_cpp_dir",
-            )
-            yield Button("选择", id="btn_pick_dir", variant="default")
-
-        # 状态指示灯
-        with Horizontal(id="status-bar"):
-            yield Static("●", id="status_light", classes="status-stopped")
-            yield Static("已停止", id="status_text")
-
-        # 基本参数区 — 每行一个参数，Label + 控件在同一行
-        yield Label("基本参数", classes="section-title")
-
-        with Horizontal(classes="param-row"):
-            yield Label("上下文大小", classes="param-label")
-            yield Select(
-                [("2048", "2048"), ("4096", "4096"), ("8192", "8192"),
-                 ("16384", "16384"), ("32768", "32768")],
-                value="4096",
-                id="context_size",
-            )
-        with Horizontal(classes="param-row"):
-            yield Label("GPU 层数", classes="param-label")
-            yield Input(
-                value="0",
-                id="n_gpu_layers",
-            )
-            yield Button("全GPU", id="btn_gpu_all", variant="default")
-            yield Button("CPU", id="btn_gpu_cpu", variant="default")
-        with Horizontal(classes="param-row"):
-            yield Label("并发数", classes="param-label")
-            yield Select(
-                [("1", "1"), ("2", "2"), ("4", "4"), ("8", "8")],
-                value="1",
-                id="parallel",
-            )
-        with Horizontal(classes="param-row"):
-            yield Label("端口", classes="param-label")
-            yield Input(
-                value="8080",
-                id="port",
-            )
-        with Horizontal(classes="param-row"):
-            yield Label("监听地址", classes="param-label")
-            yield Select(
-                [("127.0.0.1（仅本机）", "127.0.0.1"),
-                 ("0.0.0.0（局域网）", "0.0.0.0")],
-                value="127.0.0.1",
-                id="host",
-            )
-
-        # 选项区
-        with Horizontal(id="options-row"):
-            yield Switch(value=False, id="auto_open_browser")
-            yield Label("启动后打开浏览器")
-
-        # 高级参数折叠区
-        with Collapsible(title="KV Cache 与显存", collapsed=True, id="coll_kvcache"):
-            yield KVCacheParams()
-        with Collapsible(title="推理速度", collapsed=True, id="coll_inference"):
-            yield InferenceParams()
-        with Collapsible(title="采样参数", collapsed=True, id="coll_sampling"):
-            yield SamplingParams()
-        with Collapsible(title="思考模式", collapsed=True, id="coll_reasoning"):
-            yield ReasoningParams()
-        with Collapsible(title="多模态", collapsed=True, id="coll_multimodal"):
-            yield MultimodalParams()
-        with Collapsible(title="安全", collapsed=True, id="coll_security"):
-            yield SecurityParams()
-
-        # 预设管理区
-        yield Label("预设管理", classes="section-title")
-        with Horizontal(id="preset-row-select"):
-            yield Select([], id="preset_select", prompt="选择预设...", allow_blank=True)
-        with Horizontal(id="preset-row-actions"):
-            yield Button("载入预设", id="btn_preset_load", variant="primary")
-        with Horizontal(id="preset-row-actions2"):
-            yield Button("保存预设", id="btn_preset_save", variant="default")
-            yield Button("删除预设", id="btn_preset_delete", variant="error")
-        with Horizontal(id="preset-row-actions3"):
-            yield Button("导出 JSON", id="btn_preset_export", variant="default")
-            yield Button("导入 JSON", id="btn_preset_import", variant="default")
+        self._config = config
+        self._supervisor = supervisor
+        self._build_ui()
+        self._restore()
+
+    def _build_ui(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(12, 12, 12, 12)
+        root.setSpacing(8)
+
+        # 模型文件
+        root.addWidget(QLabel("模型文件"))
+        row = QHBoxLayout()
+        self._model_path = QLineEdit()
+        self._model_path.setReadOnly(True)
+        self._btn_browse_model = QPushButton("浏览")
+        self._btn_browse_model.clicked.connect(self._browse_model)
+        row.addWidget(self._model_path)
+        row.addWidget(self._btn_browse_model)
+        root.addLayout(row)
+
+        # mmproj（可选）
+        root.addWidget(QLabel("mmproj（可选）"))
+        row2 = QHBoxLayout()
+        self._mmproj_path = QLineEdit()
+        self._mmproj_path.setReadOnly(True)
+        self._mmproj_path.setPlaceholderText("留空自动检测")
+        self._btn_browse_mmproj = QPushButton("浏览")
+        self._btn_browse_mmproj.clicked.connect(self._browse_mmproj)
+        row2.addWidget(self._mmproj_path)
+        row2.addWidget(self._btn_browse_mmproj)
+        root.addLayout(row2)
+
+        # llama-server 路径
+        root.addWidget(QLabel("llama-server"))
+        row3 = QHBoxLayout()
+        self._server_path = QLineEdit()
+        self._server_path.setReadOnly(True)
+        self._btn_browse_server = QPushButton("浏览")
+        self._btn_browse_server.clicked.connect(self._browse_server)
+        row3.addWidget(self._server_path)
+        row3.addWidget(self._btn_browse_server)
+        root.addLayout(row3)
+
+        # 基础参数
+        basic = QGroupBox("基础参数")
+        form = QFormLayout(basic)
+        self._port = QSpinBox()
+        self._port.setRange(1024, 65535)
+        self._port.setValue(8080)
+        self._ctx = QComboBox()
+        self._ctx.addItems(["2048", "4096", "8192", "16384", "32768"])
+        self._ngl = QSpinBox()
+        self._ngl.setRange(0, 9999)
+        self._ngl.setValue(0)
+        self._np = QComboBox()
+        self._np.addItems(["1", "2", "4", "8"])
+        self._host = QComboBox()
+        self._host.addItems(["127.0.0.1", "0.0.0.0"])
+        form.addRow("端口", self._port)
+        form.addRow("上下文长度", self._ctx)
+        form.addRow("GPU 层数", self._ngl)
+        form.addRow("并发数", self._np)
+        form.addRow("监听地址", self._host)
+        root.addWidget(basic)
+
+        # 高级参数（滚动区）
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        adv_widget = QWidget()
+        adv_layout = QVBoxLayout(adv_widget)
+        adv_layout.setContentsMargins(0, 0, 0, 0)
+        adv_layout.setSpacing(4)
+        self._kv_params = KVCacheParams()
+        self._inf_params = InferenceParams()
+        self._samp_params = SamplingParams()
+        self._rea_params = ReasoningParams()
+        self._mm_params = MultimodalParams()
+        self._sec_params = SecurityParams()
+        for w in [self._kv_params, self._inf_params, self._samp_params,
+                  self._rea_params, self._mm_params, self._sec_params]:
+            adv_layout.addWidget(w)
+        adv_layout.addStretch()
+        scroll.setWidget(adv_widget)
+        root.addWidget(scroll, stretch=1)
+
+        # 预设管理
+        preset_box = QGroupBox("预设")
+        pl = QHBoxLayout(preset_box)
+        self._preset_combo = QComboBox()
+        self._preset_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._btn_preset_save = QPushButton("保存")
+        self._btn_preset_load = QPushButton("载入")
+        self._btn_preset_delete = QPushButton("删除")
+        self._btn_preset_export = QPushButton("导出")
+        self._btn_preset_import = QPushButton("导入")
+        for w in [self._preset_combo, self._btn_preset_save, self._btn_preset_load,
+                  self._btn_preset_delete, self._btn_preset_export, self._btn_preset_import]:
+            pl.addWidget(w)
+        self._btn_preset_save.clicked.connect(self._save_preset)
+        self._btn_preset_load.clicked.connect(self._load_preset)
+        self._btn_preset_delete.clicked.connect(self._delete_preset)
+        self._btn_preset_export.clicked.connect(self._export_presets)
+        self._btn_preset_import.clicked.connect(self._import_presets)
+        root.addWidget(preset_box)
 
         # 开机自启
-        with Horizontal(id="autostart-row"):
-            yield Switch(value=self._read_autostart(), id="autostart")
-            yield Label("开机自启")
+        self._autostart = QCheckBox("开机自启")
+        self._autostart.setChecked(bool(self._config.get("app.autostart")))
+        self._autostart.stateChanged.connect(self._toggle_autostart)
+        root.addWidget(self._autostart)
 
         # 启停按钮
-        with Horizontal(id="action-row"):
-            yield Button("▶ 启动", id="btn_start", variant="success")
-            yield Button("■ 停止", id="btn_stop", variant="error", disabled=True)
+        btn_row = QHBoxLayout()
+        self._btn_start = QPushButton("启动")
+        self._btn_start.setObjectName("btnStart")
+        self._btn_stop = QPushButton("停止")
+        self._btn_stop.setObjectName("btnStop")
+        self._btn_start.clicked.connect(self._start)
+        self._btn_stop.clicked.connect(self._stop)
+        btn_row.addWidget(self._btn_start)
+        btn_row.addWidget(self._btn_stop)
+        root.addLayout(btn_row)
 
-    def update_status(self, status: str) -> None:
-        """更新状态指示灯和文字"""
-        light = self.query_one("#status_light", Static)
-        text = self.query_one("#status_text", Static)
+        self._refresh_presets()
 
-        status_labels = {
-            "stopped": ("已停止", "status-stopped"),
-            "starting": ("启动中...", "status-starting"),
-            "running": ("运行中", "status-running"),
-            "crashed": ("已崩溃", "status-crashed"),
-        }
-        label, css_class = status_labels.get(status, ("未知", "status-stopped"))
+    # ------------------------------------------------------------------
+    # 文件浏览
+    # ------------------------------------------------------------------
 
-        light.update("●")
-        light.set_classes(css_class)
-        text.update(label)
+    def _browse_model(self):
+        path, _ = QFileDialog.getOpenFileName(self, "选择模型文件", "", "GGUF Files (*.gguf)")
+        if path:
+            self._model_path.setText(path)
+            self._config.set("model.last_path", path)
 
-        # 控制按钮状态
-        start_btn = self.query_one("#btn_start", Button)
-        stop_btn = self.query_one("#btn_stop", Button)
-        start_btn.disabled = status in ("starting", "running")
-        stop_btn.disabled = status not in ("starting", "running")
+    def _browse_mmproj(self):
+        path, _ = QFileDialog.getOpenFileName(self, "选择 mmproj 文件", "", "GGUF Files (*.gguf)")
+        if path:
+            self._mmproj_path.setText(path)
+            self._config.set("model.mmproj_path", path)
+
+    def _browse_server(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择 llama-server", "", "Executable (*.exe);;All Files (*)"
+        )
+        if path:
+            self._server_path.setText(path)
+            self._config.set("app.llama_server_path", path)
+
+    # ------------------------------------------------------------------
+    # 参数收集与回填
+    # ------------------------------------------------------------------
 
     def collect_params(self) -> dict:
-        """收集当前所有参数为字典"""
+        """收集所有参数，键名与 process_manager._build_command 对齐"""
         params = {
-            "model_path": self.query_one("#model_path", Input).value.strip(),
-            "mmproj_path": self.query_one("#mmproj_path", Input).value.strip(),
-            "port": int(self.query_one("#port", Input).value or "8080"),
-            "host": self.query_one("#host", Select).value,
-            "context_size": int(self.query_one("#context_size", Select).value),
-            "n_gpu_layers": int(self.query_one("#n_gpu_layers", Input).value or "0"),
-            "parallel": int(self.query_one("#parallel", Select).value),
-            "auto_open_browser": self.query_one("#auto_open_browser", Switch).value,
+            "model_path": self._model_path.text(),
+            "mmproj_path": self._mmproj_path.text(),
+            "server_path": self._server_path.text(),
+            "port": self._port.value(),
+            "context_size": int(self._ctx.currentText()),
+            "n_gpu_layers": self._ngl.value(),
+            "parallel": int(self._np.currentText()),
+            "host": self._host.currentText(),
         }
-
-        # 合并各分组参数
-        for widget_cls in self._PARAM_WIDGET_CLASSES:
-            widget = self.query_one(widget_cls)
-            params.update(widget.collect_params())
-
+        for w in [self._kv_params, self._inf_params, self._samp_params,
+                  self._rea_params, self._mm_params, self._sec_params]:
+            params.update(w.collect_params())
+        # 重命名 param_groups 的键以匹配 process_manager 期望
+        for old, new in _REMAP.items():
+            if old in params:
+                params[new] = params.pop(old)
         return params
 
-    def restore_advanced_params(self, config_data: dict) -> None:
-        """从配置回填高级参数"""
-        if not isinstance(config_data, dict):
+    def _restore(self):
+        """从配置恢复 UI 控件值"""
+        self._model_path.setText(self._config.get("model.last_path") or "")
+        self._mmproj_path.setText(self._config.get("model.mmproj_path") or "")
+        self._server_path.setText(self._config.get("app.llama_server_path") or "")
+        self._port.setValue(self._config.get("server.port") or 8080)
+
+        ctx = str(self._config.get("server.context_size") or 4096)
+        idx = self._ctx.findText(ctx)
+        if idx >= 0:
+            self._ctx.setCurrentIndex(idx)
+
+        self._ngl.setValue(self._config.get("server.n_gpu_layers") or 0)
+
+        np_val = str(self._config.get("server.parallel") or 1)
+        idx2 = self._np.findText(np_val)
+        if idx2 >= 0:
+            self._np.setCurrentIndex(idx2)
+
+        host = self._config.get("server.host") or "127.0.0.1"
+        idx3 = self._host.findText(host)
+        if idx3 >= 0:
+            self._host.setCurrentIndex(idx3)
+
+    # ------------------------------------------------------------------
+    # 启停
+    # ------------------------------------------------------------------
+
+    def _start(self):
+        params = self.collect_params()
+        try:
+            self._supervisor.start(params)
+        except PortInUseError as e:
+            QMessageBox.warning(self, "端口冲突", str(e))
+        except ProcessError as e:
+            QMessageBox.critical(self, "启动失败", str(e))
+
+    def _stop(self):
+        self._supervisor.stop()
+
+    # ------------------------------------------------------------------
+    # 预设管理
+    # ------------------------------------------------------------------
+
+    def _refresh_presets(self):
+        self._preset_combo.clear()
+        for name in self._config.get_presets():
+            self._preset_combo.addItem(name)
+
+    def _save_preset(self):
+        name, ok = QInputDialog.getText(self, "保存预设", "预设名称:")
+        if not ok or not name.strip():
             return
-        server = config_data.get("server", {})
-        for widget_cls in self._PARAM_WIDGET_CLASSES:
-            widget = self.query_one(widget_cls)
-            widget.restore_params(server)
+        name = name.strip()
+        if name in self._config.get_presets():
+            dlg = ConfirmDialog(f'覆盖预设 "{name}"？', self)
+            if not dlg.exec():
+                return
+        self._config.save_preset(name, self.collect_params())
+        self._refresh_presets()
 
-    def restore_basic_params(self, srv: dict) -> None:
-        """从 server 参数字典回填基本参数控件"""
-        if "port" in srv:
-            self.query_one("#port", Input).value = str(srv["port"])
-        if "host" in srv:
-            self.query_one("#host", Select).value = srv["host"]
-        if "context_size" in srv:
-            self.query_one("#context_size", Select).value = str(srv["context_size"])
-        if "n_gpu_layers" in srv:
-            self.query_one("#n_gpu_layers", Input).value = str(srv["n_gpu_layers"])
-        if "parallel" in srv:
-            self.query_one("#parallel", Select).value = str(srv["parallel"])
+    def _load_preset(self):
+        name = self._preset_combo.currentText()
+        if not name:
+            return
+        preset = self._config.get_presets().get(name, {})
+        self._restore_from_preset(preset)
 
-    def refresh_presets(self, presets: dict) -> None:
-        """刷新预设下拉列表"""
-        sel = self.query_one("#preset_select", Select)
-        options = [(name, name) for name in sorted(presets.keys())]
-        sel.set_options(options)
+    def _restore_from_preset(self, preset: dict):
+        """将预设回填到 UI 控件"""
+        if "model_path" in preset:
+            self._model_path.setText(preset["model_path"])
+        if "port" in preset:
+            self._port.setValue(preset["port"])
+        if "context_size" in preset:
+            idx = self._ctx.findText(str(preset["context_size"]))
+            if idx >= 0:
+                self._ctx.setCurrentIndex(idx)
+        if "n_gpu_layers" in preset:
+            self._ngl.setValue(preset["n_gpu_layers"])
+        if "parallel" in preset:
+            idx2 = self._np.findText(str(preset["parallel"]))
+            if idx2 >= 0:
+                self._np.setCurrentIndex(idx2)
+        if "host" in preset:
+            idx3 = self._host.findText(preset["host"])
+            if idx3 >= 0:
+                self._host.setCurrentIndex(idx3)
+        # 反向重映射，恢复 param_groups 期望的键名
+        pg_preset = {_REMAP_BACK.get(k, k): v for k, v in preset.items()}
+        for w in [self._kv_params, self._inf_params, self._samp_params,
+                  self._rea_params, self._mm_params, self._sec_params]:
+            w.restore_params(pg_preset)
 
-    def get_selected_preset(self) -> str | None:
-        """返回当前选中的预设名，无选中时返回 None"""
-        from textual.widgets.select import NoSelection
-        v = self.query_one("#preset_select", Select).value
-        return None if isinstance(v, NoSelection) else v
+    def _delete_preset(self):
+        name = self._preset_combo.currentText()
+        if not name:
+            return
+        dlg = ConfirmDialog(f'删除预设 "{name}"？', self)
+        if dlg.exec():
+            self._config.delete_preset(name)
+            self._refresh_presets()
+
+    def _export_presets(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "导出预设", "presets_export.json", "JSON (*.json)"
+        )
+        if path:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(self._config.get_presets(), f, ensure_ascii=False, indent=2)
+
+    def _import_presets(self):
+        path, _ = QFileDialog.getOpenFileName(self, "导入预设", "", "JSON (*.json)")
+        if not path:
+            return
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        for name, params in data.items():
+            self._config.save_preset(name, params)
+        self._refresh_presets()
 
     # ------------------------------------------------------------------
     # 开机自启
@@ -547,45 +344,33 @@ class ControlPanel(Vertical):
     _REGISTRY_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
     _REG_VALUE_NAME = "LLMlauncher"
 
-    def _read_autostart(self) -> bool:
-        """读取注册表，判断是否已设置开机自启"""
+    def _toggle_autostart(self, state):
+        enabled = bool(state)
+        self._config.set("app.autostart", enabled)
         try:
-            import winreg
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                self._REGISTRY_KEY,
-                0,
-                winreg.KEY_READ,
-            )
-            winreg.QueryValueEx(key, self._REG_VALUE_NAME)
-            winreg.CloseKey(key)
-            return True
-        except (FileNotFoundError, OSError):
-            return False
+            with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER, self._REGISTRY_KEY, 0, winreg.KEY_SET_VALUE
+            ) as k:
+                if enabled:
+                    exe = sys.executable
+                    script = os.path.abspath(
+                        os.path.join(os.path.dirname(__file__), "..", "main.py")
+                    )
+                    winreg.SetValueEx(k, self._REG_VALUE_NAME, 0, winreg.REG_SZ,
+                                      f'"{exe}" "{script}"')
+                else:
+                    try:
+                        winreg.DeleteValue(k, self._REG_VALUE_NAME)
+                    except FileNotFoundError:
+                        pass
+        except Exception as e:
+            logger.warning("注册表写入失败: %s", e)
 
-    def _toggle_autostart(self, enabled: bool) -> None:
-        """写入或删除开机自启注册表项"""
-        try:
-            import winreg
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                self._REGISTRY_KEY,
-                0,
-                winreg.KEY_SET_VALUE,
-            )
-            if enabled:
-                value = f'{sys.executable} "{os.path.abspath("main.py")}"'
-                winreg.SetValueEx(key, self._REG_VALUE_NAME, 0, winreg.REG_SZ, value)
-            else:
-                try:
-                    winreg.DeleteValue(key, self._REG_VALUE_NAME)
-                except FileNotFoundError:
-                    pass
-            winreg.CloseKey(key)
-        except OSError:
-            pass
+    # ------------------------------------------------------------------
+    # 外部信号槽
+    # ------------------------------------------------------------------
 
-    def on_switch_changed(self, event: Switch.Changed) -> None:
-        """处理所有 Switch 变化，过滤出 autostart"""
-        if event.switch.id == "autostart":
-            self._toggle_autostart(event.value)
+    def on_switch_model(self, path: str):
+        """接收 ModelLibraryPanel.switch_model 信号，切换模型路径"""
+        self._model_path.setText(path)
+        self._config.set("model.last_path", path)
