@@ -345,10 +345,18 @@ class LlamaLauncherApp(App):
         self._config.set("server.parallel", params["parallel"])
         self._config.set("app.auto_open_browser", params["auto_open_browser"])
 
-        # 输出启动命令到日志面板
+        # 输出启动命令到日志面板（每对参数一行）
         cmd = self._supervisor._build_command(params)
         log_panel = self.query_one("#log", LogPanel)
-        log_panel.add_line(" ".join(cmd))
+        log_panel.add_line(f"启动: {cmd[0]}")
+        i = 1
+        while i < len(cmd):
+            if cmd[i].startswith("-") and i + 1 < len(cmd) and not cmd[i + 1].startswith("-"):
+                log_panel.add_line(f"  {cmd[i]} {cmd[i + 1]}")
+                i += 2
+            else:
+                log_panel.add_line(f"  {cmd[i]}")
+                i += 1
 
         try:
             self._supervisor.start(params)
