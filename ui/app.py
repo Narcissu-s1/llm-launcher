@@ -101,10 +101,13 @@ ControlPanel .status-starting { color: yellow; }
 ControlPanel .status-running { color: green; }
 ControlPanel .status-crashed { color: red; }
 
-/* 折叠面板：内容高度由参数行数量决定 */
-ControlPanel Collapsible Vertical {
+/* 折叠面板：高度由内容决定 */
+ControlPanel Collapsible {
     height: auto;
-    overflow: hidden visible;
+}
+
+ControlPanel Collapsible .collapsible-contents {
+    height: auto;
 }
 
 ControlPanel #options-row {
@@ -139,6 +142,18 @@ LogPanel {
     background: $panel;
     border: solid $primary-background;
     padding: 0 1;
+}
+
+#mon_gpu {
+    width: 1fr;
+}
+
+#mon_ram {
+    width: 1fr;
+}
+
+#mon_slots {
+    width: 1fr;
 }
 
 #log-toolbar {
