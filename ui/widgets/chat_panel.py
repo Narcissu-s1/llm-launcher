@@ -44,6 +44,7 @@ class ChatPanel(QWidget):
         super().__init__()
         self._config = config
         self._messages = []
+        self._workers = []  # 持有 worker 引用，防止 GC
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
 
@@ -73,11 +74,16 @@ class ChatPanel(QWidget):
         port = self._config.get("server.port") or 8080
         api_key = self._config.get("server.api_key") or ""
         worker = _ChatWorker(port, list(self._messages), api_key)
+        self._workers.append(worker)
         worker.token.connect(lambda t: self._display.insertPlainText(t))
-        worker.done.connect(lambda: self._messages.append(
-            {"role": "assistant", "content": self._display.toPlainText().split("Assistant: ")[-1]}
+        worker.done.connect(lambda: (
+            self._messages.append({"role": "assistant", "content": self._display.toPlainText().split("Assistant: ")[-1]}),
+            self._workers.remove(worker) if worker in self._workers else None
         ))
-        worker.error.connect(lambda e: self._display.appendPlainText(f"\n[错误] {e}"))
+        worker.error.connect(lambda e: (
+            self._display.appendPlainText(f"\n[错误] {e}"),
+            self._workers.remove(worker) if worker in self._workers else None
+        ))
         worker.start()
 
     def _clear(self):

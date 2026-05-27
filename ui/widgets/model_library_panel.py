@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLabel, QTableWidget, QTableWidgetItem, QFileDialog, QLineEdit
+    QLabel, QTableWidget, QTableWidgetItem, QFileDialog, QLineEdit, QHeaderView
 )
 from PySide6.QtCore import Signal
 from core.config import ConfigStore
@@ -29,8 +29,13 @@ class ModelLibraryPanel(QWidget):
 
         self._table = QTableWidget(0, 5)
         self._table.setHorizontalHeaderLabels(["文件名", "大小", "量化", "参数量", "架构"])
-        self._table.horizontalHeader().setStretchLastSection(True)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self._table.horizontalHeader().setStretchLastSection(False)
+        self._table.setColumnWidth(0, 260)  # 文件名列加宽
+        self._table.setColumnWidth(1, 70)
+        self._table.setColumnWidth(2, 80)
+        self._table.setColumnWidth(3, 70)
+        self._table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self._table)
 
         btn_row = QHBoxLayout()

@@ -121,4 +121,10 @@ class LlamaLauncherApp(QMainWindow):
             event.ignore()
         else:
             self._supervisor.stop()
+            # 等待进程释放端口（最多 5 秒），避免重启时端口冲突
+            import time
+            for _ in range(50):
+                if self._supervisor.pid is None:
+                    break
+                time.sleep(0.1)
             event.accept()

@@ -97,12 +97,17 @@ def _parse_gguf(path: str) -> ModelInfo:
         # 量化类型：从文件名推断（最可靠）
         info.quant_type = _quant_from_name(name)
 
-        # 参数量：从 metadata 读取
+        # 参数量：优先用 arch-specific key，兜底遍历所有 .parameter_count key
         param_key = f"{arch}.parameter_count" if arch else ""
         if param_key and param_key in meta:
             info.param_count = int(meta[param_key])
         elif "general.parameter_count" in meta:
             info.param_count = int(meta["general.parameter_count"])
+        else:
+            for k, v in meta.items():
+                if k.endswith(".parameter_count") and isinstance(v, int) and v > 0:
+                    info.param_count = v
+                    break
 
     except Exception:
         pass
