@@ -256,9 +256,9 @@ class ProcessSupervisor:
         # Phase 2 - 多模态
         if not params.get("mmproj_offload", True):
             cmd.append("--no-mmproj-offload")
-        if params.get("image_min_tokens", 0) > 0:
+        if (params.get("image_min_tokens") or 0) > 0:
             cmd.extend(["--image-min-tokens", str(params["image_min_tokens"])])
-        if params.get("image_max_tokens", 0) > 0:
+        if (params.get("image_max_tokens") or 0) > 0:
             cmd.extend(["--image-max-tokens", str(params["image_max_tokens"])])
 
         # Phase 2 - 安全与访问控制

@@ -27,8 +27,8 @@ class ModelLibraryPanel(QWidget):
         row.addWidget(self._dir_input); row.addWidget(btn_browse); row.addWidget(btn_scan)
         layout.addLayout(row)
 
-        self._table = QTableWidget(0, 3)
-        self._table.setHorizontalHeaderLabels(["文件名", "大小", "量化"])
+        self._table = QTableWidget(0, 5)
+        self._table.setHorizontalHeaderLabels(["文件名", "大小", "量化", "参数量", "架构"])
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         layout.addWidget(self._table)
@@ -56,8 +56,11 @@ class ModelLibraryPanel(QWidget):
             row = self._table.rowCount()
             self._table.insertRow(row)
             self._table.setItem(row, 0, QTableWidgetItem(m.name))
-            self._table.setItem(row, 1, QTableWidgetItem(format_size(m.size)))
-            self._table.setItem(row, 2, QTableWidgetItem(m.quant or "—"))
+            self._table.setItem(row, 1, QTableWidgetItem(format_size(m.file_size)))
+            self._table.setItem(row, 2, QTableWidgetItem(m.quant_type or "—"))
+            param_str = f"{m.param_count/1e9:.1f}B" if m.param_count >= 1e9 else (f"{m.param_count/1e6:.0f}M" if m.param_count > 0 else "—")
+            self._table.setItem(row, 3, QTableWidgetItem(param_str))
+            self._table.setItem(row, 4, QTableWidgetItem(m.architecture or "—"))
 
     def _use_selected(self):
         rows = self._table.selectedIndexes()

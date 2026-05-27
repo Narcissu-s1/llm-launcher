@@ -73,11 +73,12 @@ class ControlPanel(QWidget):
         row2.addWidget(self._btn_browse_mmproj)
         root.addLayout(row2)
 
-        # llama-server 路径
-        root.addWidget(QLabel("llama-server"))
+        # llama.cpp 目录（自动查找 llama-server.exe）
+        root.addWidget(QLabel("llama.cpp 目录"))
         row3 = QHBoxLayout()
         self._server_path = QLineEdit()
         self._server_path.setReadOnly(True)
+        self._server_path.setPlaceholderText("留空自动搜索 PATH")
         self._btn_browse_server = QPushButton("浏览")
         self._btn_browse_server.clicked.connect(self._browse_server)
         row3.addWidget(self._server_path)
@@ -184,12 +185,10 @@ class ControlPanel(QWidget):
             self._config.set("model.mmproj_path", path)
 
     def _browse_server(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "选择 llama-server", "", "Executable (*.exe);;All Files (*)"
-        )
+        path = QFileDialog.getExistingDirectory(self, "选择 llama.cpp 目录", self._server_path.text())
         if path:
             self._server_path.setText(path)
-            self._config.set("app.llama_server_path", path)
+            self._config.set("app.llama_dir", path)
 
     # ------------------------------------------------------------------
     # 参数收集与回填
@@ -200,7 +199,6 @@ class ControlPanel(QWidget):
         params = {
             "model_path": self._model_path.text(),
             "mmproj_path": self._mmproj_path.text(),
-            "server_path": self._server_path.text(),
             "port": self._port.value(),
             "context_size": int(self._ctx.currentText()),
             "n_gpu_layers": self._ngl.value(),
@@ -220,7 +218,7 @@ class ControlPanel(QWidget):
         """从配置恢复 UI 控件值"""
         self._model_path.setText(self._config.get("model.last_path") or "")
         self._mmproj_path.setText(self._config.get("model.mmproj_path") or "")
-        self._server_path.setText(self._config.get("app.llama_server_path") or "")
+        self._server_path.setText(self._config.get("app.llama_dir") or "")
         self._port.setValue(self._config.get("server.port") or 8080)
 
         ctx = str(self._config.get("server.context_size") or 4096)
@@ -246,6 +244,13 @@ class ControlPanel(QWidget):
 
     def _start(self):
         params = self.collect_params()
+        llama_dir = self._server_path.text().strip()
+        try:
+            from core.model_resolver import ModelResolver
+            params["server_path"] = ModelResolver(llama_dir).resolve()
+        except FileNotFoundError as e:
+            QMessageBox.warning(self, "找不到 llama-server", str(e))
+            return
         try:
             self._supervisor.start(params)
         except PortInUseError as e:
