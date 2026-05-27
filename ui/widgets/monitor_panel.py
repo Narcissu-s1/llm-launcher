@@ -1,10 +1,8 @@
-"""运行时监控面板：GPU/内存/请求状态"""
+"""运行时监控面板：GPU/CPU/内存"""
 
-import json
 import logging
 import subprocess
 import threading
-import urllib.request
 from typing import Any
 
 import psutil
@@ -31,7 +29,6 @@ class MonitorPanel(Horizontal):
         yield Static("GPU: --", id="mon_gpu")
         yield Static("CPU: --", id="mon_cpu")
         yield Static("内存: --", id="mon_ram")
-        yield Static("Slots: --/--", id="mon_slots")
 
     def _detect_gpu(self) -> None:
         """检测 nvidia-smi 是否可用"""
@@ -84,7 +81,6 @@ class MonitorPanel(Horizontal):
         gpu_text = self._collect_gpu()
         cpu_text = self._collect_cpu()
         ram_text = self._collect_ram()
-        slots_text = self._collect_slots()
 
         def update():
             try:
@@ -92,7 +88,6 @@ class MonitorPanel(Horizontal):
                     self.query_one("#mon_gpu", Static).update(gpu_text)
                 self.query_one("#mon_cpu", Static).update(cpu_text)
                 self.query_one("#mon_ram", Static).update(ram_text)
-                self.query_one("#mon_slots", Static).update(slots_text)
             except Exception:
                 logger.debug("监控更新失败（控件可能已销毁）")
 
@@ -142,21 +137,7 @@ class MonitorPanel(Horizontal):
                 self._proc = None
         return f"内存: {sys_used}/{sys_total}{proc_text}"
 
-    def _collect_slots(self) -> str:
-        """采集 Slots 信息"""
-        try:
-            url = f"http://127.0.0.1:{self._port}/slots"
-            req = urllib.request.Request(url, method="GET")
-            with urllib.request.urlopen(req, timeout=1) as resp:
-                data = json.loads(resp.read())
-                active = sum(
-                    1 for s in data
-                    if s.get("state") not in (0, "idle")
-                )
-                total = len(data)
-                return f"Slots: {active}/{total}"
-        except Exception:
-            return "Slots: --/--"
+    
 
     @staticmethod
     def _format_bytes(n: int) -> str:

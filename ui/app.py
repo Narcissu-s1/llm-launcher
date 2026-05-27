@@ -156,9 +156,7 @@ LogPanel {
     width: 1fr;
 }
 
-#mon_slots {
-    width: 1fr;
-}
+
 
 #log-toolbar {
     height: 3;
@@ -346,6 +344,11 @@ class LlamaLauncherApp(App):
         self._config.set("server.n_gpu_layers", params["n_gpu_layers"])
         self._config.set("server.parallel", params["parallel"])
         self._config.set("app.auto_open_browser", params["auto_open_browser"])
+
+        # 输出启动命令到日志面板
+        cmd = self._supervisor._build_command(params)
+        log_panel = self.query_one("#log", LogPanel)
+        log_panel.add_line(" ".join(cmd))
 
         try:
             self._supervisor.start(params)
