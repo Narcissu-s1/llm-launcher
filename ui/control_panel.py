@@ -37,6 +37,7 @@ _REMAP_BACK = {v: k for k, v in _REMAP.items()}
 
 class ControlPanel(QWidget):
     set_model_path = Signal(str)  # 接收 ModelLibraryPanel.switch_model 信号
+    started = Signal(dict)        # 启动成功后发出，携带 params
 
     def __init__(self, config: ConfigStore, supervisor: ProcessSupervisor):
         super().__init__()
@@ -148,11 +149,20 @@ class ControlPanel(QWidget):
         self._btn_preset_import.clicked.connect(self._import_presets)
         root.addWidget(preset_box)
 
-        # 开机自启
+        # 选项行
+        opts_row = QHBoxLayout()
         self._autostart = QCheckBox("开机自启")
         self._autostart.setChecked(bool(self._config.get("app.autostart")))
         self._autostart.stateChanged.connect(self._toggle_autostart)
-        root.addWidget(self._autostart)
+        self._auto_browser = QCheckBox("启动后打开浏览器")
+        self._auto_browser.setChecked(bool(self._config.get("app.auto_open_browser")))
+        self._auto_browser.stateChanged.connect(
+            lambda s: self._config.set("app.auto_open_browser", bool(s))
+        )
+        opts_row.addWidget(self._autostart)
+        opts_row.addWidget(self._auto_browser)
+        opts_row.addStretch()
+        root.addLayout(opts_row)
 
         # 启停按钮
         btn_row = QHBoxLayout()
@@ -235,15 +245,6 @@ class ControlPanel(QWidget):
         if idx2 >= 0:
             self._np.setCurrentIndex(idx2)
 
-        host = self._config.get("server.host") or "127.0.0.1"
-        idx3 = self._host.findText(host)
-        if idx3 >= 0:
-            self._host.setCurrentIndex(idx3)
-
-    # ------------------------------------------------------------------
-    # 启停
-    # ------------------------------------------------------------------
-
     def _start(self):
         params = self.collect_params()
         llama_dir = self._server_path.text().strip()
@@ -255,8 +256,13 @@ class ControlPanel(QWidget):
             return
         try:
             self._supervisor.start(params)
-            # 写入实际端口，聊天面板等组件从 config 读取时能获得正确值
             self._config.set("server.port", params["port"])
+            self.started.emit(params)
+            if self._auto_browser.isChecked():
+                import webbrowser
+                host = params.get("host", "127.0.0.1")
+                port = params.get("port", 8080)
+                webbrowser.open(f"http://{host}:{port}")
         except PortInUseError as e:
             QMessageBox.warning(self, "端口冲突", str(e))
         except ProcessError as e:
