@@ -163,9 +163,12 @@ class ControlPanel(QWidget):
         self._btn_preset_delete = QPushButton("删除")
         self._btn_preset_export = QPushButton("导出")
         self._btn_preset_import = QPushButton("导入")
-        for w in [self._preset_combo, self._btn_preset_save, self._btn_preset_load,
-                  self._btn_preset_delete, self._btn_preset_export, self._btn_preset_import]:
-            pl.addWidget(w)
+        pl.addWidget(self._preset_combo)
+        pl.setSpacing(2)
+        for btn in [self._btn_preset_save, self._btn_preset_load,
+                   self._btn_preset_delete, self._btn_preset_export, self._btn_preset_import]:
+            btn.setStyleSheet("QPushButton { padding: 6px 4px; min-width: 0px; }")
+            pl.addWidget(btn)
         self._btn_preset_save.clicked.connect(self._save_preset)
         self._btn_preset_load.clicked.connect(self._load_preset)
         self._btn_preset_delete.clicked.connect(self._delete_preset)

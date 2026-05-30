@@ -95,7 +95,8 @@ QPushButton {{
     color: {COLORS["text_primary"]};
     border: 1px solid {COLORS["border"]};
     border-radius: 6px;
-    padding: 6px 14px;
+    padding: 6px 8px;
+    min-width: 40px;
 }}
 QPushButton:hover {{
     background: {COLORS["primary_bg"]};
