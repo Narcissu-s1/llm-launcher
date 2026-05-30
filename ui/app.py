@@ -5,9 +5,10 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
     QTabWidget, QFrame, QLabel, QSizePolicy
 )
-from PySide6.QtCore import Qt, QByteArray
+from PySide6.QtCore import Qt, QByteArray, QPropertyAnimation, QEasingCurve
 
 from core.config import ConfigStore
+from ui import styles
 from core.events import EventBus
 from core.process_manager import ProcessSupervisor, ProcessStatus
 from ui.bridge import AppBridge
@@ -42,6 +43,9 @@ class LlamaLauncherApp(QMainWindow):
         self._restore_geometry()
         self._tray = TrayIcon(self, self._supervisor, self._bus)
 
+        # 应用全局样式
+        self.setStyleSheet(styles.LIGHT_THEME)
+
     def _build_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
@@ -52,7 +56,8 @@ class LlamaLauncherApp(QMainWindow):
         # 左侧状态线 (3px)
         self._status_line = QFrame()
         self._status_line.setFixedWidth(3)
-        self._status_line.setStyleSheet("background:#cbd5e0;")
+        self._status_line.setObjectName("statusLine")
+        self._status_line.setStyleSheet(styles.get_status_line_qss(styles.COLORS["status_stopped"]))
         root.addWidget(self._status_line)
 
         # 左侧面板：只有控制面板
@@ -89,12 +94,6 @@ class LlamaLauncherApp(QMainWindow):
         _btn_guide = QPushButton("参数指南")
         for btn in (_btn_usage, _btn_guide):
             btn.setCheckable(True)
-            btn.setStyleSheet(
-                "QPushButton{font-size:12px;padding:4px 10px;border:1px solid #cbd5e0;"
-                "border-radius:4px;background:#f7fafc;color:#4a5568;}"
-                "QPushButton:checked{background:#ebf8ff;color:#2b6cb0;border-color:#90cdf4;}"
-                "QPushButton:hover{background:#edf2f7;}"
-            )
             _cl.addWidget(btn)
         self._right_tabs.setCornerWidget(_corner, Qt.Corner.TopRightCorner)
 
@@ -139,8 +138,12 @@ class LlamaLauncherApp(QMainWindow):
         self._monitor = MonitorPanel(self._supervisor)
         right_splitter.addWidget(self._right_tabs)
         right_splitter.addWidget(self._monitor)
-        right_splitter.setStretchFactor(0, 7)
-        right_splitter.setStretchFactor(1, 3)
+        right_splitter.setStretchFactor(0, 1)
+        right_splitter.setStretchFactor(1, 0)
+        right_splitter.setSizes([900, 100])
+        right_splitter.splitterMoved.connect(lambda: right_splitter.setSizes([700, 300]))
+        right_splitter.setHandleWidth(0)
+        right_splitter.setStyleSheet("QSplitter > QSplitter { border: none; } QSplitter::handle { background: transparent; }")
         root.addWidget(right_splitter, stretch=1)
 
         # 状态栏
@@ -162,13 +165,13 @@ class LlamaLauncherApp(QMainWindow):
         except ValueError:
             return
         colors = {
-            ProcessStatus.RUNNING:  "#1a9e6e",
-            ProcessStatus.STOPPED:  "#718096",
-            ProcessStatus.STARTING: "#d69e2e",
-            ProcessStatus.CRASHED:  "#e53e3e",
+            ProcessStatus.RUNNING:  styles.COLORS["status_running"],
+            ProcessStatus.STOPPED:  styles.COLORS["status_stopped"],
+            ProcessStatus.STARTING: styles.COLORS["status_starting"],
+            ProcessStatus.CRASHED:  styles.COLORS["status_error"],
         }
-        color = colors.get(status, "#718096")
-        self._status_line.setStyleSheet(f"background:{color};")
+        color = colors.get(status, styles.COLORS["status_stopped"])
+        self._status_line.setStyleSheet(styles.get_status_line_qss(color))
         labels = {
             ProcessStatus.RUNNING:  "运行中",
             ProcessStatus.STOPPED:  "已停止",

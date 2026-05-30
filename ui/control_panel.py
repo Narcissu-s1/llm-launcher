@@ -198,7 +198,7 @@ class ControlPanel(QWidget):
         # 启停按钮
         btn_row = QHBoxLayout()
         self._btn_start = QPushButton("启动")
-        self._btn_start.setObjectName("btnStart")
+        self._btn_start.setObjectName("btnPrimary")
         self._btn_stop = QPushButton("停止")
         self._btn_stop.setObjectName("btnStop")
         self._btn_start.clicked.connect(self._start)

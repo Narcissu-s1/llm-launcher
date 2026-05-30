@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox,
-    QComboBox, QCheckBox, QLineEdit, QWidget, QVBoxLayout, QPushButton
+    QComboBox, QCheckBox, QLineEdit, QWidget, QVBoxLayout, QPushButton,
+    QLayout
 )
 
 def _safe_int(v, default=0):
@@ -24,8 +25,13 @@ class _CollapsibleGroup(QGroupBox):
         self._on_toggle(False)
 
     def _on_toggle(self, checked: bool):
-        for w in self.findChildren(QWidget):
-            w.setEnabled(checked)
+        # 从布局中获取所有控件（findChildren 不会深入到布局内部）
+        for child in self.children():
+            if isinstance(child, QLayout):
+                for w in child.findChildren(QWidget):
+                    w.setEnabled(checked)
+            elif isinstance(child, QWidget):
+                child.setEnabled(checked)
 
     def collect_params(self) -> dict:
         if not self.isChecked():

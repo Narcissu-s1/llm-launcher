@@ -11,8 +11,11 @@ class LogPanel(QWidget):
         layout.setSpacing(0)
 
         header = QHBoxLayout()
-        header.setContentsMargins(12, 6, 12, 6)
-        header.addWidget(QLabel("日志"))
+        header.setContentsMargins(12, 8, 12, 8)
+        header.setSpacing(8)
+        lbl = QLabel("日志")
+        lbl.setStyleSheet("font-weight:600;font-size:13px;color:#2d3748;")
+        header.addWidget(lbl)
         header.addStretch()
         btn_clear = QPushButton("清空")
         btn_copy = QPushButton("复制")

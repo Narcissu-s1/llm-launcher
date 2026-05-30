@@ -72,7 +72,8 @@ class _MonitorWorker(QThread):
 class _StatCard(QFrame):
     def __init__(self, label: str, unit: str = ""):
         super().__init__()
-        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setObjectName("statCard")
+        self.setFrameShape(QFrame.Shape.NoFrame)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(2)
@@ -86,7 +87,7 @@ class _StatCard(QFrame):
         self._bar = QProgressBar()
         self._bar.setRange(0, 100)
         self._bar.setTextVisible(False)
-        self._bar.setFixedHeight(5)
+        self._bar.setFixedHeight(8)
         layout.addWidget(self._lbl)
         layout.addWidget(self._val)
         layout.addWidget(self._sub)
@@ -96,10 +97,10 @@ class _StatCard(QFrame):
         self._val.setText(value_str)
         pct = max(0, min(100, pct))
         self._bar.setValue(pct)
-        bar_color = "#e53e3e" if pct >= 80 else "#1a9e6e"
+        bar_color = "#e53e3e" if pct >= 80 else "#38a169"
         self._bar.setStyleSheet(
-            f"QProgressBar{{background:#e2e8f0;border-radius:2px;}}"
-            f"QProgressBar::chunk{{background:{bar_color};border-radius:2px;}}"
+            f"QProgressBar{{background:#e2e8f0;border-radius:4px;}}"
+            f"QProgressBar::chunk{{background:{bar_color};border-radius:4px;}}"
         )
         self._sub.setText(sub)
         self._sub.setVisible(bool(sub))

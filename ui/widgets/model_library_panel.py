@@ -48,6 +48,12 @@ class ModelLibraryPanel(QWidget):
         self._table.setColumnWidth(2, 80)
         self._table.setColumnWidth(3, 70)
         self._table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self._table.setStyleSheet(
+            "QTableWidget { background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; }"
+            "QTableWidget::item { padding:4px 8px; }"
+            "QTableWidget::item:selected { background:#ebf8ff; color:#2d3748; }"
+            "QHeaderView::section { background:#f0f4f8; color:#718096; font-weight:600; font-size:12px; padding:6px 8px; border:none; border-bottom:1px solid #e2e8f0; }"
+        )
         layout.addWidget(self._table)
 
         btn_row = QHBoxLayout()

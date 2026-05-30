@@ -46,7 +46,7 @@ def _section(title: str, rows: list[tuple[str, str, str]]) -> QFrame:
         name_lbl = QLabel(param)
         name_lbl.setStyleSheet(
             "font-family:'DM Mono',Consolas,monospace;font-size:12px;"
-            "font-weight:600;color:#2d7dd2;border:none;background:transparent;"
+            "font-weight:600;color:#3182ce;border:none;background:transparent;"
         )
         name_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         top_layout.addWidget(name_lbl)
@@ -249,7 +249,7 @@ class GuidePanel(QWidget):
 
         title = QLabel("参数指南")
         title.setStyleSheet(
-            "font-size:15px;font-weight:700;color:#1a202c;padding-bottom:2px;border:none;"
+            "font-size:15px;font-weight:700;color:#2d3748;padding-bottom:2px;border:none;"
         )
         layout.addWidget(title)
 
