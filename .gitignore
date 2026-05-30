@@ -33,6 +33,10 @@ htmlcov/
 # AI 工具
 .serena/
 .codegraph/
+.claude/
+
+# 构建脚本
+C编译.bat
 
 # 系统文件
 Thumbs.db
