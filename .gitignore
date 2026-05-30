@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.spec
+
+# 虚拟环境
+.venv/
+venv/
+ENV/
+
+# 运行时配置与缓存
+config.yaml
+model_cache.json
+crash.log
+nul
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 系统文件
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Nuitka 构建
+main.build/
+main.dist/

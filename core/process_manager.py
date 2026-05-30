@@ -92,7 +92,11 @@ class ProcessSupervisor:
 
         cmd = self._build_command(params)
         logger.info("启动命令: %s", " ".join(cmd))
+        self._event_bus.emit(EVENT_LOG_LINE, line=">>> 启动命令:")
+        for arg in cmd:
+            self._event_bus.emit(EVENT_LOG_LINE, line=f"    {arg}")
 
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         try:
             self._process = subprocess.Popen(
                 cmd,
@@ -102,6 +106,7 @@ class ProcessSupervisor:
                 encoding="utf-8",
                 errors="replace",
                 bufsize=1,
+                creationflags=creationflags,
             )
         except FileNotFoundError:
             raise ProcessError(
@@ -189,21 +194,30 @@ class ProcessSupervisor:
             return Path(p).as_posix()
 
         server_path = _safe_path(params.get("server_path", "llama-server"))
-        model_path = _safe_path(params["model_path"])
+        router_mode = params.get("router_mode", False)
 
-        cmd = [
-            server_path,
-            "-m", model_path,
+        cmd = [server_path]
+
+        if router_mode:
+            # 路由模式：用 --models-dir 替代 -m，服务器自动扫描目录中的 GGUF
+            models_dir = _safe_path(params.get("models_dir", ""))
+            if models_dir:
+                cmd.extend(["--models-dir", models_dir])
+        else:
+            # 单模型模式
+            model_path = _safe_path(params["model_path"])
+            cmd.extend(["-m", model_path])
+            mmproj = params.get("mmproj_path", "")
+            if mmproj and os.path.isfile(mmproj):
+                cmd.extend(["--mmproj", _safe_path(mmproj)])
+
+        cmd.extend([
             "--host", str(params.get("host", "127.0.0.1")),
             "--port", str(params.get("port", 8080)),
             "-c", str(params.get("context_size", 4096)),
             "--n-gpu-layers", str(params.get("n_gpu_layers", 0)),
             "-np", str(params.get("parallel", 1)),
-        ]
-
-        mmproj = params.get("mmproj_path", "")
-        if mmproj and os.path.isfile(mmproj):
-            cmd.extend(["--mmproj", _safe_path(mmproj)])
+        ])
 
         # Phase 2 - KV Cache 与显存
         if params.get("cache_type_k", "f16") != "f16":
@@ -214,8 +228,11 @@ class ProcessSupervisor:
             cmd.append("--no-kv-unified")
         if params.get("no_kv_offload", False):
             cmd.append("--no-kv-offload")
-        if params.get("flash_attn", False):
-            cmd.append("-fa")
+        fa = params.get("flash_attn", "auto")
+        if isinstance(fa, bool):
+            fa = "on" if fa else "off"
+        if fa != "auto":
+            cmd.extend(["-fa", str(fa)])
         if not params.get("cache_prompt", True):
             cmd.append("--no-cache-prompt")
         if not params.get("cache_idle_slots", True):
@@ -236,17 +253,25 @@ class ProcessSupervisor:
             cmd.extend(["--threads-http", str(params["threads_http"])])
         if params.get("no_warmup", False):
             cmd.append("--no-warmup")
+        if not params.get("jinja", True):
+            cmd.append("--no-jinja")
+        if params.get("context_shift", False):
+            cmd.append("--context-shift")
+        if params.get("keep", 0) > 0:
+            cmd.extend(["--keep", str(params["keep"])])
+        if params.get("poll") is not None and params["poll"] != 50:
+            cmd.extend(["--poll", str(params["poll"])])
 
         # Phase 2 - 采样参数
-        if abs(params.get("temp", 0.80) - 0.80) > 0.001:
+        if abs(params.get("temp", 0.60) - 0.60) > 0.001:
             cmd.extend(["--temp", str(params["temp"])])
         if params.get("top_k", 40) != 40:
             cmd.extend(["--top-k", str(params["top_k"])])
-        if abs(params.get("top_p", 0.95) - 0.95) > 0.001:
+        if abs(params.get("top_p", 0.90) - 0.90) > 0.001:
             cmd.extend(["--top-p", str(params["top_p"])])
         if abs(params.get("min_p", 0.05) - 0.05) > 0.001:
             cmd.extend(["--min-p", str(params["min_p"])])
-        if abs(params.get("repeat_penalty", 1.0) - 1.0) > 0.001:
+        if abs(params.get("repeat_penalty", 1.10) - 1.10) > 0.001:
             cmd.extend(["--repeat-penalty", str(params["repeat_penalty"])])
         if params.get("seed", -1) != -1:
             cmd.extend(["-s", str(params["seed"])])
@@ -274,12 +299,26 @@ class ProcessSupervisor:
         # Phase 2 - 安全与访问控制
         if params.get("api_key", ""):
             cmd.extend(["--api-key", params["api_key"]])
-        if params.get("timeout", 600) != 600:
+        if params.get("timeout", 1200) != 1200:
             cmd.extend(["--timeout", str(params["timeout"])])
         if params.get("metrics", False):
             cmd.append("--metrics")
         if not params.get("slots", True):
             cmd.append("--no-slots")
+        if params.get("tools", False):
+            cmd.extend(["--tools", "all"])
+
+        # 投机解码
+        if params.get("spec_type", "none") != "none":
+            cmd.extend(["--spec-type", params["spec_type"]])
+        if params.get("spec_draft_n_max", 3) != 3:
+            cmd.extend(["--spec-draft-n-max", str(params["spec_draft_n_max"])])
+        if params.get("spec_draft_n_min", 0) != 0:
+            cmd.extend(["--spec-draft-n-min", str(params["spec_draft_n_min"])])
+        if abs(params.get("spec_draft_p_split", 0.1) - 0.1) > 0.001:
+            cmd.extend(["--spec-draft-p-split", str(params["spec_draft_p_split"])])
+        if abs(params.get("spec_draft_p_min", 0.0) - 0.0) > 0.001:
+            cmd.extend(["--spec-draft-p-min", str(params["spec_draft_p_min"])])
 
         return cmd
 

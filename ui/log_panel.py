@@ -31,11 +31,13 @@ class LogPanel(QWidget):
     def add_line(self, line: str):
         ts = datetime.now().strftime("%H:%M:%S")
         lower = line.lower()
-        if any(k in lower for k in ["error", "failed", "oom", "killed"]):
+        if line.startswith(">>> ") or line.startswith("    "):
+            color = "#4a9eff"
+        elif any(k in lower for k in ["error", "failed", "oom", "killed"]):
             color = "#e53e3e"
         elif any(k in lower for k in ["warn", "warning"]):
             color = "#d69e2e"
-        elif any(k in lower for k in ["loaded", "listening", "success", "ready"]):
+        elif any(k in lower for k in ["loaded", "listening", "success", "ready", "llm loaded", "model loaded"]):
             color = "#1a9e6e"
         else:
             color = "#718096"

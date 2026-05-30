@@ -20,7 +20,7 @@ from core.process_manager import ProcessSupervisor, PortInUseError, ProcessError
 from ui.confirm_dialog import ConfirmDialog
 from ui.widgets.param_groups import (
     KVCacheParams, InferenceParams, SamplingParams,
-    ReasoningParams, MultimodalParams, SecurityParams,
+    ReasoningParams, MultimodalParams, SecurityParams, SpeculativeParams,
 )
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,25 @@ class ControlPanel(QWidget):
         row2.addWidget(self._btn_browse_mmproj)
         root.addLayout(row2)
 
+        # 路由模式
+        self._router_mode = QCheckBox("路由模式（多模型，--models-dir）")
+        self._router_mode.setToolTip(
+            "启用后以路由模式启动服务器，自动扫描目录中的 GGUF 模型\n"
+            "通过 /v1/models 列出模型，请求中指定 model 字段路由到对应模型"
+        )
+        self._router_mode.stateChanged.connect(self._toggle_router_mode)
+        root.addWidget(self._router_mode)
+
+        row_router = QHBoxLayout()
+        self._models_dir = QLineEdit()
+        self._models_dir.setReadOnly(True)
+        self._models_dir.setPlaceholderText("选择模型文件所在的上一级目录")
+        self._btn_browse_models_dir = QPushButton("浏览")
+        self._btn_browse_models_dir.clicked.connect(self._browse_models_dir)
+        row_router.addWidget(self._models_dir)
+        row_router.addWidget(self._btn_browse_models_dir)
+        root.addLayout(row_router)
+
         # llama.cpp 目录（自动查找 llama-server.exe）
         root.addWidget(QLabel("llama.cpp 目录"))
         row3 = QHBoxLayout()
@@ -94,13 +113,17 @@ class ControlPanel(QWidget):
         self._port.setValue(8080)
         self._ctx = QComboBox()
         self._ctx.addItems(["2048", "4096", "8192", "16384", "32768"])
+        # 路由模式下额外增加 64K~256K 的上下文选项
+        self._router_ctx_extra = ["65536", "131072", "262144"]
         self._ngl = QSpinBox()
-        self._ngl.setRange(0, 9999)
-        self._ngl.setValue(0)
+        self._ngl.setRange(-1, 9999)
+        self._ngl.setSpecialValueText("全部（-1）")
+        self._ngl.setValue(-1)
         self._np = QComboBox()
         self._np.addItems(["1", "2", "4", "8"])
         self._host = QComboBox()
-        self._host.addItems(["127.0.0.1", "0.0.0.0"])
+        self._host.addItem("127.0.0.1（仅本机）", "127.0.0.1")
+        self._host.addItem("0.0.0.0（局域网）", "0.0.0.0")
         form.addRow("端口", self._port)
         form.addRow("上下文长度", self._ctx)
         form.addRow("GPU 层数", self._ngl)
@@ -122,8 +145,9 @@ class ControlPanel(QWidget):
         self._rea_params = ReasoningParams()
         self._mm_params = MultimodalParams()
         self._sec_params = SecurityParams()
+        self._spec_params = SpeculativeParams()
         for w in [self._kv_params, self._inf_params, self._samp_params,
-                  self._rea_params, self._mm_params, self._sec_params]:
+                  self._rea_params, self._mm_params, self._sec_params, self._spec_params]:
             adv_layout.addWidget(w)
         adv_layout.addStretch()
         scroll.setWidget(adv_widget)
@@ -159,8 +183,15 @@ class ControlPanel(QWidget):
         self._auto_browser.stateChanged.connect(
             lambda s: self._config.set("app.auto_open_browser", bool(s))
         )
+        self._tools = QCheckBox("启动WUI工具")
+        self._tools.setToolTip("启用 llama-server 内置 Web 工具界面（--tools）")
+        self._tools.setChecked(bool(self._config.get("server.tools")))
+        self._tools.stateChanged.connect(
+            lambda s: self._config.set("server.tools", bool(s))
+        )
         opts_row.addWidget(self._autostart)
         opts_row.addWidget(self._auto_browser)
+        opts_row.addWidget(self._tools)
         opts_row.addStretch()
         root.addLayout(opts_row)
 
@@ -200,6 +231,35 @@ class ControlPanel(QWidget):
             self._server_path.setText(path)
             self._config.set("app.llama_dir", path)
 
+    def _browse_models_dir(self):
+        path = QFileDialog.getExistingDirectory(self, "选择模型目录", self._models_dir.text())
+        if path:
+            self._models_dir.setText(path)
+            self._config.set("app.models_dir", path)
+
+    def _toggle_router_mode(self, state):
+        enabled = bool(state)
+        self._config.set("app.router_mode", enabled)
+        # 路由模式下禁用单模型文件和 mmproj 选择
+        self._model_path.setEnabled(not enabled)
+        self._btn_browse_model.setEnabled(not enabled)
+        self._mmproj_path.setEnabled(not enabled)
+        self._btn_browse_mmproj.setEnabled(not enabled)
+        # 路由模式下启用模型目录选择
+        self._models_dir.setEnabled(enabled)
+        self._btn_browse_models_dir.setEnabled(enabled)
+        # 路由模式下扩展上下文长度选项至 256K
+        current = self._ctx.currentText()
+        self._ctx.blockSignals(True)
+        self._ctx.clear()
+        base = ["2048", "4096", "8192", "16384", "32768"]
+        if enabled:
+            base += self._router_ctx_extra
+        self._ctx.addItems(base)
+        idx = self._ctx.findText(current)
+        self._ctx.setCurrentIndex(idx if idx >= 0 else self._ctx.count() - 1)
+        self._ctx.blockSignals(False)
+
     # ------------------------------------------------------------------
     # 参数收集与回填
     # ------------------------------------------------------------------
@@ -213,10 +273,13 @@ class ControlPanel(QWidget):
             "context_size": int(self._ctx.currentText()),
             "n_gpu_layers": self._ngl.value(),
             "parallel": int(self._np.currentText()),
-            "host": self._host.currentText(),
+            "host": self._host.currentData(),
+            "router_mode": self._router_mode.isChecked(),
+            "models_dir": self._models_dir.text(),
+            "tools": self._tools.isChecked(),
         }
         for w in [self._kv_params, self._inf_params, self._samp_params,
-                  self._rea_params, self._mm_params, self._sec_params]:
+                  self._rea_params, self._mm_params, self._sec_params, self._spec_params]:
             params.update(w.collect_params())
         # 重命名 param_groups 的键以匹配 process_manager 期望
         for old, new in _REMAP.items():
@@ -233,12 +296,28 @@ class ControlPanel(QWidget):
         self._server_path.setText(self._config.get("app.llama_dir") or "")
         self._port.setValue(self._config.get("server.port") or 8080)
 
+        # 路由模式
+        router = bool(self._config.get("app.router_mode"))
+        self._router_mode.setChecked(router)
+        self._models_dir.setText(self._config.get("app.models_dir") or "")
+        self._models_dir.setEnabled(router)
+        self._btn_browse_models_dir.setEnabled(router)
+        self._model_path.setEnabled(not router)
+        self._btn_browse_model.setEnabled(not router)
+        self._mmproj_path.setEnabled(not router)
+        self._btn_browse_mmproj.setEnabled(not router)
+
+        # 路由模式下扩展上下文长度选项至 256K
+        if router:
+            self._ctx.addItems(self._router_ctx_extra)
+
         ctx = str(self._config.get("server.context_size") or 4096)
         idx = self._ctx.findText(ctx)
         if idx >= 0:
             self._ctx.setCurrentIndex(idx)
 
-        self._ngl.setValue(self._config.get("server.n_gpu_layers") or 0)
+        ngl = self._config.get("server.n_gpu_layers")
+        self._ngl.setValue(ngl if ngl is not None else -1)
 
         np_val = str(self._config.get("server.parallel") or 1)
         idx2 = self._np.findText(np_val)
@@ -247,6 +326,18 @@ class ControlPanel(QWidget):
 
     def _start(self):
         params = self.collect_params()
+        # 路由模式验证
+        if params["router_mode"]:
+            if not params["models_dir"]:
+                QMessageBox.warning(self, "路由模式", "请先选择模型目录")
+                return
+            if not os.path.isdir(params["models_dir"]):
+                QMessageBox.warning(self, "路由模式", f"模型目录不存在:\n{params['models_dir']}")
+                return
+        else:
+            if not params["model_path"]:
+                QMessageBox.warning(self, "未选择模型", "请先选择模型文件，或启用路由模式")
+                return
         llama_dir = self._server_path.text().strip()
         try:
             from core.model_resolver import ModelResolver
@@ -316,9 +407,10 @@ class ControlPanel(QWidget):
             if idx2 >= 0:
                 self._np.setCurrentIndex(idx2)
         if "host" in preset:
-            idx3 = self._host.findText(preset["host"])
-            if idx3 >= 0:
-                self._host.setCurrentIndex(idx3)
+            for i in range(self._host.count()):
+                if self._host.itemData(i) == preset["host"]:
+                    self._host.setCurrentIndex(i)
+                    break
         # 反向重映射，恢复 param_groups 期望的键名
         pg_preset = {_REMAP_BACK.get(k, k): v for k, v in preset.items()}
         for w in [self._kv_params, self._inf_params, self._samp_params,
@@ -389,3 +481,48 @@ class ControlPanel(QWidget):
         """接收 ModelLibraryPanel.switch_model 信号，切换模型路径"""
         self._model_path.setText(path)
         self._config.set("model.last_path", path)
+
+        # 自动检测同目录 mmproj，找不到则清空（避免残留旧路径导致不匹配）
+        from core.model_library import find_mmproj
+        mmproj = find_mmproj(path)
+        self._mmproj_path.setText(mmproj)
+        self._config.set("model.mmproj_path", mmproj)
+
+        self._update_ctx_for_model(path)
+
+    def _update_ctx_for_model(self, path: str):
+        """根据模型 GGUF metadata 更新 context 选项和 GPU 层数范围"""
+        from core.model_library import _parse_gguf
+        try:
+            info = _parse_gguf(path)
+        except Exception:
+            return
+
+        # 更新上下文长度下拉（2 次幂，上限为模型最大 context）
+        max_ctx = info.context_length
+        if max_ctx > 0:
+            options = []
+            v = 512
+            while v <= max_ctx:
+                options.append(str(v))
+                v *= 2
+            if options:
+                current = self._ctx.currentText()
+                self._ctx.blockSignals(True)
+                self._ctx.clear()
+                self._ctx.addItems(options)
+                idx = self._ctx.findText(current)
+                self._ctx.setCurrentIndex(idx if idx >= 0 else self._ctx.count() - 1)
+                self._ctx.blockSignals(False)
+
+        # 更新 GPU 层数范围（-1 ~ block_count）
+        block_count = info.block_count
+        if block_count > 0:
+            current_ngl = self._ngl.value()
+            self._ngl.setRange(-1, block_count)
+            self._ngl.setToolTip(f"该模型共 {block_count} 层，-1 = 全部卸载到 GPU")
+            # 若当前值超出新上限则夹紧
+            self._ngl.setValue(min(current_ngl, block_count))       # 尽量恢复原来的选项，否则选最大
+        idx = self._ctx.findText(current)
+        self._ctx.setCurrentIndex(idx if idx >= 0 else self._ctx.count() - 1)
+        self._ctx.blockSignals(False)

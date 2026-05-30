@@ -2,23 +2,68 @@ import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QLineEdit, QComboBox, QTableWidget, QTableWidgetItem,
-    QProgressBar, QPlainTextEdit, QFileDialog
+    QProgressBar, QPlainTextEdit, QFileDialog, QCheckBox, QHeaderView,
+    QListWidget, QListWidgetItem, QAbstractItemView,
 )
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt
 from core.config import ConfigStore
-from core.hf_downloader import HFDownloader, RemoteFile, DownloadTask, HF_ENDPOINT, HF_MIRROR_ENDPOINT
+from core.hf_downloader import (
+    HFDownloader, RemoteFile, DownloadTask, SearchResult,
+    HF_ENDPOINT, HF_MIRROR_ENDPOINT,
+)
 from core.model_library import format_size
 
 
+def _format_downloads(n: int) -> str:
+    """格式化下载量"""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.1f}K"
+    return str(n)
+
+
 class DownloadPanel(QWidget):
+    # 跨线程安全信号
+    _sig_scan_done = Signal(object)   # list[RemoteFile] | Exception
+    _sig_progress  = Signal(object)   # DownloadTask
+    _sig_done      = Signal(object)   # list[DownloadTask]
+    _sig_log       = Signal(str)
+    _sig_search_done = Signal(object) # list[SearchResult] | Exception
+
     def __init__(self, config: ConfigStore):
         super().__init__()
         self._config = config
         self._remote_files: list[RemoteFile] = []
-        self._selected: list[RemoteFile] = []
         self._dl = HFDownloader()
+
+        # 连接跨线程信号到主线程槽
+        self._sig_scan_done.connect(self._on_scan_done)
+        self._sig_progress.connect(self._on_progress)
+        self._sig_done.connect(self._on_done)
+        self._sig_log.connect(self._log_msg)
+        self._sig_search_done.connect(self._on_search_done)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
+
+        # 搜索行
+        search_row = QHBoxLayout()
+        self._search_input = QLineEdit()
+        self._search_input.setPlaceholderText("搜索模型仓库，返回下载量前 50")
+        self._search_input.returnPressed.connect(self._search)
+        self._btn_search = QPushButton("搜索")
+        self._btn_search.clicked.connect(self._search)
+        search_row.addWidget(self._search_input)
+        search_row.addWidget(self._btn_search)
+        layout.addLayout(search_row)
+
+        # 搜索结果列表（默认隐藏）
+        self._search_results = QListWidget()
+        self._search_results.setMaximumHeight(150)
+        self._search_results.setVisible(False)
+        self._search_results.itemDoubleClicked.connect(self._on_search_selected)
+        layout.addWidget(self._search_results)
 
         row1 = QHBoxLayout()
         self._repo = QLineEdit()
@@ -43,10 +88,14 @@ class DownloadPanel(QWidget):
         row2.addWidget(btn_scan)
         layout.addLayout(row2)
 
+        # 列：选择（复选框）/ 文件名 / 大小
         self._table = QTableWidget(0, 3)
         self._table.setHorizontalHeaderLabels(["选择", "文件名", "大小"])
-        self._table.horizontalHeader().setStretchLastSection(True)
-        self._table.cellClicked.connect(self._toggle_row)
+        self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        self._table.setColumnWidth(0, 50)
+        self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self._table.setColumnWidth(2, 80)
+        self._table.verticalHeader().setVisible(False)
         layout.addWidget(self._table)
 
         self._progress_label = QLabel("")
@@ -77,16 +126,17 @@ class DownloadPanel(QWidget):
         layout.addLayout(btn_row)
 
     def _browse_dest(self):
-        d = QFileDialog.getExistingDirectory(self, "选择下载目录")
+        d = QFileDialog.getExistingDirectory(self, "选择下载目录", self._dest.text())
         if d:
             self._dest.setText(d)
+            self._config.set("app.model_dir", d)
 
     def _get_source_params(self):
-        src = self._source.currentText()
-        if src == "HF 镜像":
+        idx = self._source.currentIndex()
+        if idx == 1:
             return HF_MIRROR_ENDPOINT, "hf"
-        if src == "ModelScope":
-            return HF_ENDPOINT, "modelscope"
+        if idx == 2:
+            return "", "modelscope"
         return HF_ENDPOINT, "hf"
 
     def _log_msg(self, msg: str):
@@ -96,18 +146,14 @@ class DownloadPanel(QWidget):
         repo = self._repo.text().strip()
         if not repo:
             return
-        self._log.clear()
-        self._table.setRowCount(0)
-        self._remote_files.clear()
-        self._selected.clear()
         endpoint, source = self._get_source_params()
         self._log_msg(f"扫描 {repo} ...")
         self._dl.scan(
             repo_id=repo,
-            on_done=self._on_scan_done,
-            on_log=self._log_msg,
             endpoint=endpoint,
             source=source,
+            on_done=lambda r: self._sig_scan_done.emit(r),
+            on_log=lambda m: self._sig_log.emit(m),
         )
 
     def _on_scan_done(self, result):
@@ -119,21 +165,29 @@ class DownloadPanel(QWidget):
         for f in self._remote_files:
             row = self._table.rowCount()
             self._table.insertRow(row)
-            self._table.setItem(row, 0, QTableWidgetItem("☐"))
+
+            # 复选框居中
+            cb = QCheckBox()
+            cb.setChecked(False)
+            cell = QWidget()
+            cell_layout = QHBoxLayout(cell)
+            cell_layout.addWidget(cb)
+            cell_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            self._table.setCellWidget(row, 0, cell)
+
             self._table.setItem(row, 1, QTableWidgetItem(f.name))
             self._table.setItem(row, 2, QTableWidgetItem(format_size(f.size) if f.size else "—"))
 
-    def _toggle_row(self, row, col):
-        item = self._table.item(row, 0)
-        if row >= len(self._remote_files):
-            return
-        f = self._remote_files[row]
-        if item.text() == "☐":
-            item.setText("☑")
-            self._selected.append(f)
-        else:
-            item.setText("☐")
-            self._selected = [s for s in self._selected if s.path != f.path]
+    def _get_selected(self) -> list[RemoteFile]:
+        selected = []
+        for row in range(self._table.rowCount()):
+            cell = self._table.cellWidget(row, 0)
+            if cell:
+                cb = cell.findChild(QCheckBox)
+                if cb and cb.isChecked() and row < len(self._remote_files):
+                    selected.append(self._remote_files[row])
+        return selected
 
     def _on_progress(self, task: DownloadTask):
         pct = int(task.downloaded / task.total * 100) if task.total > 0 else 0
@@ -151,10 +205,13 @@ class DownloadPanel(QWidget):
         self._btn_start.setEnabled(True)
 
     def _start(self):
-        if not self._selected:
+        selected = self._get_selected()
+        if not selected:
+            self._log_msg("请先勾选要下载的文件")
             return
         dest = self._dest.text().strip()
         if not dest:
+            self._log_msg("请先选择下载目录")
             return
         repo = self._repo.text().strip()
         endpoint, source = self._get_source_params()
@@ -162,24 +219,65 @@ class DownloadPanel(QWidget):
         self._progress_bar.setValue(0)
         self._btn_cancel.setEnabled(True)
         self._btn_start.setEnabled(False)
-        self._log_msg(f"开始下载 {len(self._selected)} 个文件...")
+        self._log_msg(f"开始下载 {len(selected)} 个文件...")
         self._dl.start(
-            files=self._selected,
+            files=selected,
             repo_id=repo,
             save_dir=dest,
-            on_progress=self._on_progress,
-            on_done=self._on_done,
-            on_log=self._log_msg,
+            on_progress=lambda t: self._sig_progress.emit(t),
+            on_done=lambda t: self._sig_done.emit(t),
+            on_log=lambda m: self._sig_log.emit(m),
             endpoint=endpoint,
             source=source,
         )
 
     def _cancel(self):
         self._dl.cancel()
-        self._log_msg("已发送取消信号...")
-        self._btn_cancel.setEnabled(False)
-        self._btn_start.setEnabled(True)
 
     def _copy_log(self):
         from PySide6.QtWidgets import QApplication
         QApplication.clipboard().setText(self._log.toPlainText())
+
+    # ------------------------------------------------------------------
+    # 搜索
+    # ------------------------------------------------------------------
+
+    def _search(self):
+        keyword = self._search_input.text().strip()
+        if not keyword:
+            return
+        endpoint, source = self._get_source_params()
+        self._btn_search.setEnabled(False)
+        self._search_results.clear()
+        self._search_results.setVisible(False)
+        self._log_msg(f"搜索: {keyword}")
+        self._dl.search(
+            keyword=keyword,
+            endpoint=endpoint,
+            source=source,
+            on_done=lambda r: self._sig_search_done.emit(r),
+            on_log=lambda m: self._sig_log.emit(m),
+        )
+
+    def _on_search_done(self, result):
+        self._btn_search.setEnabled(True)
+        if isinstance(result, Exception):
+            self._log_msg(f"搜索失败: {result}")
+            return
+        if not result:
+            self._log_msg("未找到匹配的模型")
+            self._search_results.setVisible(False)
+            return
+        self._search_results.clear()
+        for item in result:
+            text = f"{item.repo_id}  ⬇{_format_downloads(item.downloads)}  ♥{item.likes}"
+            QListWidgetItem(text, self._search_results)
+        self._search_results.setVisible(True)
+        self._log_msg(f"找到 {len(result)} 个仓库，双击选择")
+
+    def _on_search_selected(self, item: QListWidgetItem):
+        text = item.text()
+        repo_id = text.split("  ")[0].strip()
+        self._repo.setText(repo_id)
+        self._search_results.setVisible(False)
+        self._log_msg(f"已选择: {repo_id}")

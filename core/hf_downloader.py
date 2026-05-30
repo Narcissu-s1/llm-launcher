@@ -18,6 +18,18 @@ MS_ENDPOINT = "https://www.modelscope.cn"
 
 
 @dataclass
+class SearchResult:
+    """HuggingFace 模型搜索结果"""
+    repo_id: str       # 如 "Qwen/Qwen2.5-7B-Instruct-GGUF"
+    author: str = ""
+    model_name: str = ""
+    downloads: int = 0
+    likes: int = 0
+    last_modified: str = ""
+    tags: list = field(default_factory=list)
+
+
+@dataclass
 class RemoteFile:
     path: str       # 仓库内路径（可含子目录）
     name: str       # 文件名
@@ -96,6 +108,43 @@ class HFDownloader:
     def cancel(self) -> None:
         self._cancel.set()
 
+    def search(
+        self,
+        keyword: str,
+        on_done: Callable[[list[SearchResult] | Exception], None],
+        on_log: Callable[[str], None] | None = None,
+        endpoint: str = HF_ENDPOINT,
+        verify_ssl: bool = True,
+        limit: int = 50,
+        source: str = "hf",
+    ) -> None:
+        """搜索模型仓库
+
+        Args:
+            keyword: 搜索关键词
+            on_done: 结果回调，接收 list[SearchResult] 或 Exception
+            on_log: 日志回调
+            endpoint: HF API 端点
+            verify_ssl: 是否验证 SSL
+            limit: 最大返回数量
+            source: 数据源 ("hf" / "modelscope")
+        """
+        log = on_log or (lambda _: None)
+        ssl_ctx = _make_ssl_ctx(verify_ssl)
+        def _run():
+            log(f"搜索模型: {keyword}")
+            try:
+                if source == "modelscope":
+                    results = _ms_search_models(keyword, ssl_ctx, log, limit)
+                else:
+                    results = _hf_search_models(keyword, endpoint, ssl_ctx, log, limit)
+                log(f"找到 {len(results)} 个仓库")
+                on_done(results)
+            except Exception as e:
+                log(f"搜索失败:\n{traceback.format_exc()}")
+                on_done(e)
+        threading.Thread(target=_run, daemon=True).start()
+
     def _run(self, files, repo_id, save_dir, on_progress, on_done, on_log,
              hf_token, endpoint, verify_ssl, source):
         ssl_ctx = _make_ssl_ctx(verify_ssl)
@@ -166,6 +215,83 @@ def _hf_list_gguf_files(repo_id, token, endpoint, ssl_ctx, on_log) -> list[Remot
     return files
 
 
+def _hf_search_models(keyword: str, endpoint: str, ssl_ctx, on_log, limit: int = 50) -> list[SearchResult]:
+    """调用 HuggingFace API 搜索模型仓库（只返回含 GGUF 文件的结果）"""
+    import urllib.parse
+    params = urllib.parse.urlencode({
+        "search": keyword,
+        "limit": limit,
+        "filter": "gguf",
+        "sort": "downloads",
+        "direction": "-1",
+    })
+    api_url = f"{endpoint}/api/models?{params}"
+    req = urllib.request.Request(api_url)
+    on_log(f"API: {api_url}")
+    try:
+        with _open(req, ssl_ctx, 30) as resp:
+            on_log(f"HTTP {resp.status}")
+            data = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"HTTP {e.code} {e.reason}\n{body}") from e
+
+    results = []
+    for item in data:
+        repo_id = item.get("id", "")
+        if not repo_id:
+            continue
+        results.append(SearchResult(
+            repo_id=repo_id,
+            author=item.get("author", ""),
+            model_name=repo_id.split("/")[-1] if "/" in repo_id else repo_id,
+            downloads=item.get("downloads", 0),
+            likes=item.get("likes", 0),
+            last_modified=item.get("lastModified", ""),
+            tags=item.get("tags", []),
+        ))
+    return results
+
+
+def _ms_search_models(keyword: str, ssl_ctx, on_log, limit: int = 50) -> list[SearchResult]:
+    """调用 ModelScope 旧版 API 搜索模型仓库"""
+    body = json.dumps({
+        "Name": keyword,
+        "PageNumber": 1,
+        "PageSize": limit,
+    }).encode("utf-8")
+    api_url = f"{MS_ENDPOINT}/api/v1/models"
+    req = urllib.request.Request(api_url, data=body, method="PUT")
+    req.add_header("Content-Type", "application/json")
+    on_log(f"API: {api_url}")
+    try:
+        with _open(req, ssl_ctx, 30) as resp:
+            on_log(f"HTTP {resp.status}")
+            data = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body_text = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"HTTP {e.code} {e.reason}\n{body_text}") from e
+
+    if not data.get("Success"):
+        raise RuntimeError(f"ModelScope API 错误: {data.get('Message', '未知错误')}")
+
+    models = data.get("Data", {}).get("Models", [])
+    results = []
+    for item in models:
+        path = item.get("Path", "")
+        name = item.get("Name", "")
+        if not path or not name:
+            continue
+        results.append(SearchResult(
+            repo_id=f"{path}/{name}",
+            author=item.get("CreatedBy", path),
+            model_name=item.get("ChineseName") or name,
+            downloads=item.get("Downloads", 0),
+            likes=item.get("Stars", 0),
+        ))
+    return results
+
+
 def _ms_list_gguf_files(repo_id, token, ssl_ctx, on_log) -> list[RemoteFile]:
     api_url = f"{MS_ENDPOINT}/api/v1/models/{repo_id}/repo/files?Recursive=true"
     req = urllib.request.Request(api_url)
@@ -204,9 +330,10 @@ def _download_file(task, token, ssl_ctx, cancel, on_progress, on_log) -> None:
         req.add_header("Authorization", f"Bearer {token}")
 
     existing = os.path.getsize(task.dest) if os.path.exists(task.dest) else 0
-    if existing:
+    resume_requested = bool(existing)
+    if resume_requested:
         req.add_header("Range", f"bytes={existing}-")
-        on_log(f"断点续传，已有 {existing} 字节")
+        on_log(f"断点续传请求：已有 {existing} 字节，发送 Range: bytes={existing}-")
 
     task.status = "downloading"
     task.downloaded = existing
@@ -218,6 +345,21 @@ def _download_file(task, token, ssl_ctx, cancel, on_progress, on_log) -> None:
             content_length = resp.headers.get("Content-Length")
             content_range = resp.headers.get("Content-Range")
 
+            if resume_requested:
+                if resp.status == 206:
+                    on_log("✓ 服务器支持断点续传（HTTP 206 Partial Content），将从断点继续下载")
+                    mode = "ab"
+                elif resp.status == 200:
+                    on_log("✗ 服务器不支持断点续传（返回 HTTP 200），将重新下载整个文件")
+                    existing = 0
+                    task.downloaded = 0
+                    mode = "wb"
+                else:
+                    mode = "ab"
+            else:
+                on_log("首次下载（无断点续传）")
+                mode = "wb"
+
             if content_range:
                 total_str = content_range.split("/")[-1]
                 task.total = int(total_str) if total_str.isdigit() else 0
@@ -226,7 +368,6 @@ def _download_file(task, token, ssl_ctx, cancel, on_progress, on_log) -> None:
             else:
                 task.total = task.total or 0
 
-            mode = "ab" if existing else "wb"
             with open(task.dest, mode) as f:
                 while not cancel.is_set():
                     chunk = resp.read(CHUNK)

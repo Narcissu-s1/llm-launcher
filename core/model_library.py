@@ -40,7 +40,10 @@ class ModelInfo:
     file_size: int               # 字节
     quant_type: str = "未知"
     param_count: int = 0         # 参数量（个）
+    size_label: str = ""         # 原始 size_label，如 "35B-A3B"
     architecture: str = ""
+    context_length: int = 0      # 模型最大上下文长度（token）
+    block_count: int = 0         # Transformer 层数（--n-gpu-layers 上限）
 
 
 def scan_directory(directory: str) -> list[ModelInfo]:
@@ -94,13 +97,31 @@ def _parse_gguf(path: str) -> ModelInfo:
         arch = meta.get("general.architecture", "")
         info.architecture = arch
 
-        # 量化类型：从文件名推断（最可靠）
-        info.quant_type = _quant_from_name(name)
+        # 量化类型：优先从 file_type 推断，其次从文件名推断
+        file_type = meta.get("general.file_type")
+        if isinstance(file_type, int):
+            info.quant_type = _quant_from_file_type(file_type)
+        if not info.quant_type:
+            info.quant_type = _quant_from_name(name)
 
-        # 参数量：优先用 general.size_label（如 "7B" / "752M"），兜底用 parameter_count
+        # 参数量：优先从 general.size_label（如 "752M" / "7.6B" / "35B-A3B"）
         size_label = meta.get("general.size_label", "")
         if isinstance(size_label, str) and size_label:
+            info.size_label = size_label
             info.param_count = _parse_size_label(size_label)
+        # context_length
+        ctx_key = f"{arch}.context_length" if arch else ""
+        if ctx_key and ctx_key in meta:
+            info.context_length = int(meta[ctx_key])
+        elif "llama.context_length" in meta:
+            info.context_length = int(meta["llama.context_length"])
+
+        # block_count（Transformer 层数，即 --n-gpu-layers 的有效上限）
+        blk_key = f"{arch}.block_count" if arch else ""
+        if blk_key and blk_key in meta:
+            info.block_count = int(meta[blk_key])
+
+        # 兜底：metadata 中的 parameter_count
         if info.param_count == 0:
             param_key = f"{arch}.parameter_count" if arch else ""
             if param_key and param_key in meta:
@@ -120,20 +141,24 @@ def _parse_gguf(path: str) -> ModelInfo:
 
 
 def _read_metadata(f, kv_count: int) -> dict:
-    """读取 GGUF metadata，返回 {key: value} 字典（只读取感兴趣的 key）"""
+    """读取 GGUF metadata，返回 {key: value} 字典"""
     meta = {}
-    _INTERESTING = {"general.architecture", "general.parameter_count",
-                    "general.quantization_version", "general.size_label"}
-    # 动态添加 arch-specific key（先读 architecture）
+    _INTERESTING = {"general.architecture", "general.size_label",
+                    "general.parameter_count", "general.quantization_version",
+                    "general.file_type"}
     for _ in range(kv_count):
         key = _read_string(f)
         vtype = struct.unpack("<I", f.read(4))[0]
         value = _read_value(f, vtype)
-        if key in _INTERESTING or key.endswith(".parameter_count"):
+        if (key in _INTERESTING
+                or key.endswith(".parameter_count")
+                or key.endswith(".context_length")
+                or key.endswith(".block_count")):
             meta[key] = value
-        # 动态扩展
         if key == "general.architecture" and isinstance(value, str):
             _INTERESTING.add(f"{value}.parameter_count")
+            _INTERESTING.add(f"{value}.context_length")
+            _INTERESTING.add(f"{value}.block_count")
     return meta
 
 
@@ -168,22 +193,74 @@ def _quant_from_name(name: str) -> str:
     for q in sorted(_QUANT_NAMES.values(), key=len, reverse=True):
         if q in upper:
             return q
-    return "未知"
+    return ""
+
+
+# general.file_type → 量化类型映射（来源：llama.cpp llama_ftype 枚举）
+_FILE_TYPE_MAP: dict[int, str] = {
+    0: "F32",
+    1: "F16",
+    2: "Q4_0",
+    3: "Q4_1",
+    7: "Q8_0",
+    8: "Q5_0",
+    9: "Q5_1",
+    10: "Q2_K",
+    11: "Q3_K_S",
+    12: "Q3_K_M",
+    13: "Q3_K_L",
+    14: "Q4_K_S",
+    15: "Q4_K_M",
+    16: "Q5_K_S",
+    17: "Q5_K_M",
+    18: "Q6_K",
+    19: "IQ2_XXS",
+    20: "IQ2_XS",
+    21: "Q2_K_S",
+    22: "IQ3_XS",
+    23: "IQ3_XXS",
+    24: "IQ1_S",
+    25: "IQ4_NL",
+    26: "IQ3_S",
+    27: "IQ3_M",
+    28: "IQ2_S",
+    29: "IQ2_M",
+    30: "IQ4_XS",
+    31: "IQ1_M",
+    32: "BF16",
+    36: "TQ1_0",
+    37: "TQ2_0",
+    38: "MXFP4_MOE",
+    39: "NVFP4",
+    40: "Q1_0",
+}
+
+
+def _quant_from_file_type(file_type: int) -> str:
+    """从 general.file_type 推断量化类型"""
+    return _FILE_TYPE_MAP.get(file_type, "")
 
 
 def _parse_size_label(label: str) -> int:
-    """解析 general.size_label 字符串，如 '7B' → 7_000_000_000, '752M' → 752_000_000"""
+    """解析 size_label 字符串为参数量，如 '752M' → 752_000_000, '7.6B' → 7_600_000_000"""
     label = label.strip().upper()
-    if not label:
-        return 0
+    multiplier = 1
+    if label.endswith("B"):
+        multiplier = 1_000_000_000
+        num = label[:-1]
+    elif label.endswith("M"):
+        multiplier = 1_000_000
+        num = label[:-1]
+    elif label.endswith("K"):
+        multiplier = 1_000
+        num = label[:-1]
+    else:
+        try:
+            return int(label)
+        except ValueError:
+            return 0
     try:
-        if label.endswith("B"):
-            return int(float(label[:-1]) * 1_000_000_000)
-        if label.endswith("M"):
-            return int(float(label[:-1]) * 1_000_000)
-        if label.endswith("K"):
-            return int(float(label[:-1]) * 1_000)
-        return int(float(label))
+        return int(float(num) * multiplier)
     except ValueError:
         return 0
 

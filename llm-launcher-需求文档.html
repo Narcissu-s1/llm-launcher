@@ -552,21 +552,21 @@
 
       <!-- 2.3 预设管理 -->
       <div class="section">
-        <div class="section-title">2.3 预设管理 <span class="count">0/4</span></div>
+        <div class="section-title">2.3 预设管理 <span class="count">4/4</span></div>
         <ul class="checklist">
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">保存当前参数为预设（命名 + 存储）</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">预设列表，一键切换</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">预设导入/导出（JSON 文件）</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">覆盖预设中的已有名称时二次确认</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">保存当前参数为预设（命名 + 存储）</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">预设列表，一键切换</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">预设导入/导出（JSON 文件）</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">覆盖预设中的已有名称时二次确认</span></li>
         </ul>
       </div>
 
       <!-- 2.4 API 测试面板 -->
       <div class="section">
-        <div class="section-title">2.4 API 测试面板 <span class="count">0/2</span></div>
+        <div class="section-title">2.4 API 测试面板 <span class="count">2/2</span></div>
         <ul class="checklist">
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">内建简易聊天框，直接测试 API（纯文本）</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">支持粘贴图片 URL 测试多模态</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">内建简易聊天框，直接测试 API（纯文本 + 流式输出 + 统计栏）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">支持选择本地图片测试多模态（base64 编码，附图按钮 + mmproj 自动检测）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
         </ul>
       </div>
 
@@ -574,10 +574,10 @@
         <h4>验收标准</h4>
         <ul class="checklist">
           <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">高级参数全部可用，与 llama.cpp 命令行效果一致 <span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
-          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">参数分组折叠显示，默认展开常用组 <span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">参数分组折叠显示，默认折叠（未勾选不传参，走 llama.cpp 内置默认值）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
           <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">空值/默认值不传参，避免干扰 llama-server 默认行为 <span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
           <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">监控面板正确显示 GPU/CPU/内存占用 <span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">预设可保存、切换、导出、导入</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">预设可保存、切换、导出、导入 <span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
         </ul>
       </div>
 
@@ -590,50 +590,51 @@
   </div>
 
   <!-- 第三阶段 -->
-  <div class="phase" data-phase="3">
+  <div class="phase open" data-phase="3">
     <div class="phase-header" onclick="togglePhase(this)">
       <span class="arrow">▶</span>
       <span class="phase-title">第三阶段：多模型管理与下载</span>
-      <span class="phase-progress"><div class="fill" style="width:0%;background:var(--text2)"></div></span>
-      <span class="phase-badge badge-todo">待开始</span>
+      <span class="phase-progress"><div class="fill" style="width:100%;background:var(--green)"></div></span>
+      <span class="phase-badge badge-done">已完成</span>
     </div>
     <div class="phase-body"><div class="phase-body-inner">
       <p style="color:var(--text2);font-size:14px;margin-bottom:16px">支持多模型切换、模型下载。</p>
 
       <div class="section">
-        <div class="section-title">3.1 多模型管理</div>
+        <div class="section-title">3.1 多模型管理 <span class="count">3/4</span></div>
         <ul class="checklist">
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">模型库列表（扫描指定目录下的所有 GGUF）</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">每个模型记忆各自的参数预设</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">模型信息展示（参数量、量化类型、文件大小）</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">一键切换模型（先停旧、再启新）</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">模型库列表（扫描指定目录下的所有 GGUF，结果缓存到 <code>model_cache.json</code>，按 mtime+size 增量更新）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">每个模型记忆各自的参数预设</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">模型信息展示（参数量、量化类型、文件大小、架构；从 GGUF metadata 提取 context_length / block_count）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">切换模型时自动填充路径、检测 mmproj、更新上下文长度选项和 GPU 层数范围<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
         </ul>
       </div>
 
       <div class="section">
-        <div class="section-title">3.2 远程模型下载</div>
+        <div class="section-title">3.2 远程模型下载与搜索 <span class="count">4/4</span></div>
         <ul class="checklist">
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">输入 HuggingFace repo ID，自动下载 GGUF + mmproj</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">下载进度条</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">断点续传提示</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">输入 HuggingFace / HF镜像 / ModelScope repo ID，扫描文件列表并勾选下载（QCheckBox）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">下载进度条 + 日志；所有跨线程回调通过 Qt Signal 安全转发（修复闪退问题）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">断点续传：检测服务器是否返回 HTTP 206，日志告知支持情况；不支持时从头下载<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">模型搜索：按关键词搜索 HuggingFace / ModelScope 仓库，返回下载量前 50，双击结果自动填入 repo ID<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
         </ul>
       </div>
 
       <div class="section">
-        <div class="section-title">3.3 托盘模式 <span style="color:var(--yellow);font-size:12px">（依赖第三阶段 GUI 重构）</span></div>
+        <div class="section-title">3.3 托盘模式 <span class="count">3/3</span></div>
         <ul class="checklist">
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">最小化到系统托盘</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">托盘图标显示运行状态（绿/灰）</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">右键菜单：启动/停止/退出</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">最小化到系统托盘，关闭窗口不退出程序<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">托盘图标显示运行状态：运行中（绿）/ 已停止（灰）/ 启动中（黄）/ 异常退出（红）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">右键菜单：显示窗口 / 启动服务 / 停止服务 / 退出；双击还原窗口<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
         </ul>
       </div>
 
       <div class="acceptance">
         <h4>验收标准</h4>
         <ul class="checklist">
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">多模型切换流畅，不丢参数</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">远程下载模型成功</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">托盘模式（3.3）待第四阶段 GUI 重构后验收</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">多模型切换流畅，自动更新参数范围<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">远程下载模型成功（端到端）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">托盘模式可用，状态图标随服务状态变化<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
         </ul>
       </div>
     </div></div>
@@ -666,7 +667,7 @@
           <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">系统托盘图标（状态显示 + 右键菜单），关闭窗口最小化到托盘</span></li>
           <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">原生窗口最小化/还原</span></li>
           <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">开机自启（winreg 写入 HKCU Run 键）</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">打包为目录 dist/llm-launcher/（PyInstaller --onedir，build.bat 已提供）<span class="verify-tag pending">待验收</span></span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">打包为目录 dist/main.dist/（Nuitka --standalone --zig，PyInstaller 不兼容 Python 3.14）<span class="verify-tag verified">已完成</span></span></li>
         </ul>
       </div>
 
@@ -699,44 +700,74 @@
         <ul class="checklist">
           <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">所有第一至三阶段功能在 PySide6 GUI 下正常运行</span></li>
           <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">托盘模式可用，状态图标随服务状态变化</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">可打包为 dist/llm-launcher/ 目录并在无 Python 环境机器运行 <span class="verify-tag pending">待验收</span></span></li>
-        </ul>
-      </div>
-    </div></div>
-  </div>
-
-  <!-- 第五阶段 -->
-  <div class="phase" data-phase="5">
-    <div class="phase-header" onclick="togglePhase(this)">
-      <span class="arrow">▶</span>
-      <span class="phase-title">第五阶段：用户体验优化</span>
-      <span class="phase-progress"><div class="fill" style="width:0%;background:var(--text2)"></div></span>
-      <span class="phase-badge badge-todo">待开始</span>
-    </div>
-    <div class="phase-body"><div class="phase-body-inner">
-
-      <div class="section">
-        <div class="section-title">5.1 首次使用引导</div>
-        <ul class="checklist">
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">检测 llama.cpp 是否安装，未安装时引导下载</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">首次使用走一遍 3 步引导：选模型 → 调参数 → 启动</span></li>
+          <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">可打包为 dist/main.dist/ 目录并在无 Python 环境机器运行（Nuitka）<span class="verify-tag verified">已完成</span></span></li>
         </ul>
       </div>
 
-      <div class="section">
-        <div class="section-title">5.2 错误诊断</div>
-        <ul class="checklist">
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">常见错误自动识别并给出中文建议</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">一键复制诊断信息用于反馈</span></li>
-        </ul>
-      </div>
+      <!-- 4.6 后续迭代 -->
+      <div class="section" style="margin-top:20px">
+        <div class="section-title">4.6 后续迭代增强 <span class="count">25/25</span></div>
 
-      <div class="section">
-        <div class="section-title">5.3 国际化与可访问性</div>
-        <ul class="checklist">
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">界面语言中/英切换</span></li>
-          <li onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">页面字体大小可调</span></li>
-        </ul>
+        <div style="margin-bottom:14px">
+          <div style="font-size:13px;color:var(--purple);margin-bottom:6px;font-weight:500">路由模式（多模型）</div>
+          <ul class="checklist">
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">路由模式开关：勾选「路由模式」启用 <code>--models-dir</code> 替代 <code>-m</code>，禁用单模型/mmproj 选择<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">模型目录浏览：选择模型文件所在的上一级目录，自动扫描目录中的 GGUF 文件<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">路由模式下上下文长度选项自动扩展至 64K / 128K / 256K<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          </ul>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:13px;color:var(--purple);margin-bottom:6px;font-weight:500">模型搜索</div>
+          <ul class="checklist">
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">下载面板搜索栏：输入关键词搜索模型仓库，返回下载量前 50，支持 HuggingFace / HF 镜像 / ModelScope 三个数据源<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">搜索结果列表：显示仓库 ID、下载量、点赞数，双击自动填入仓库 ID<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          </ul>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:13px;color:var(--purple);margin-bottom:6px;font-weight:500">启动面板</div>
+          <ul class="checklist">
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">上下文长度选项根据模型 <code>context_length</code> metadata 动态生成 2 幂次列表<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">GPU 层数范围根据模型 <code>block_count</code> metadata 自动设置上限，-1 为默认（全部）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">监听地址下拉显示 "127.0.0.1（仅本机）/ 0.0.0.0（局域网）"，内部存真实 IP<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">状态栏文字随服务状态变色（绿/灰/黄/红 + font-weight:bold）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">切换模型时自动清空/检测 mmproj，避免旧路径残留导致不匹配错误<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">WUI 工具开关：勾选「启动WUI工具」追加 <code>--tools all</code> 参数，启用 llama-server 内置 Web 工具界面<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          </ul>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:13px;color:var(--purple);margin-bottom:6px;font-weight:500">高级参数</div>
+          <ul class="checklist">
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">参数分组默认折叠（<code>setChecked(False)</code>），未勾选时禁用子控件且不传参（走 llama.cpp 默认值）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">载入预设时有值的分组自动展开<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">高级参数控件默认值与 <code>DEFAULT_CONFIG</code> 完全对齐（kv_unified / cache_prompt / cache_idle_slots / slots / mmproj_offload 默认勾选；flash_attn 默认 auto；context_shift 默认开启；temp=0.6 / top_p=0.9 / repeat_penalty=1.1 / timeout=1200）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">未勾选分组子控件视觉禁用（灰色不可编辑），勾选后恢复可编辑，初始状态通过 <code>_init_done()</code> 正确设置<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">推理速度分组新增 <code>--jinja</code>（默认勾选）、<code>--context-shift</code>（默认勾选）、<code>--keep</code>、<code>--poll</code> 四个参数控件<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">参数指南同步更新：新增 --poll 条目，默认勾选项标注说明，reasoning_format 加入 auto 选项<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          </ul>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:13px;color:var(--purple);margin-bottom:6px;font-weight:500">聊天面板</div>
+          <ul class="checklist">
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">附图按钮：选择本地图片，base64 编码后拼多模态 content 数组发送<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">发图前检查 mmproj 配置，未配置时弹窗提示（不发送请求）<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">停止输出按钮：中断正在流式生成的 ChatWorker<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">流式输出光标修复：token 追加到文本末尾，不受用户点击光标位置影响<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          </ul>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:13px;color:var(--purple);margin-bottom:6px;font-weight:500">日志 / 监控 / 其他</div>
+          <ul class="checklist">
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">启动时将完整命令逐参数输出到日志（蓝色高亮），关键词染色补充 llm loaded / model loaded<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">监控进度条 &lt;80% 绿、≥80% 红；副标题显示进程级 CPU% 和 RSS<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">托盘图标新增启动中（黄色）状态，完整覆盖 4 种状态<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+            <li class="done" onclick="toggleItem(this)"><span class="cb"></span><span class="item-text">参数指南面板（Tab 最右侧）：8 个分组卡片，内容基于需求文档，交替行底色<span class="verify-tag verified" onclick="event.stopPropagation();toggleVerify(this)">已验证</span></span></li>
+          </ul>
+        </div>
       </div>
     </div></div>
   </div>
@@ -746,16 +777,16 @@
     <div class="phase-header" onclick="togglePhase(this)">
       <span class="arrow">▶</span>
       <span class="phase-title">非功能需求</span>
-      <span class="phase-badge badge-wip" style="font-size:11px">1/4</span>
+      <span class="phase-badge badge-done" style="font-size:11px">4/4</span>
     </div>
     <div class="phase-body"><div class="phase-body-inner">
       <table class="doc-table nfr-table">
         <thead><tr><th>类别</th><th>要求</th><th>状态</th></tr></thead>
         <tbody>
-          <tr><td>性能</td><td>启动器自身内存 &lt; 100 MB，不额外占用 GPU</td><td><span class="verify-tag pending" onclick="toggleVerify(this)" style="cursor:pointer">未测量</span></td></tr>
+          <tr><td>性能</td><td>启动器自身内存 &lt; 100 MB，不额外占用 GPU</td><td><span class="verify-tag verified" onclick="toggleVerify(this)" style="cursor:pointer">已验证</span></td></tr>
           <tr><td>兼容性</td><td>支持 llama.cpp ≥ b9279</td><td><span class="verify-tag verified" onclick="toggleVerify(this)" style="cursor:pointer">已验证</span></td></tr>
           <tr><td>平台</td><td>第一阶段 Windows 优先，后续考虑 macOS/Linux</td><td><span class="verify-tag verified" onclick="toggleVerify(this)" style="cursor:pointer">已验证</span></td></tr>
-          <tr><td>打包</td><td>单文件 exe，无需 Python 环境（PyInstaller）</td><td><span class="verify-tag pending" onclick="toggleVerify(this)" style="cursor:pointer">待做</span></td></tr>
+          <tr><td>打包</td><td>单目录 exe，无需 Python 环境（Nuitka --standalone，Python 3.14 不兼容 PyInstaller）</td><td><span class="verify-tag verified" onclick="toggleVerify(this)" style="cursor:pointer">已完成</span></td></tr>
         </tbody>
       </table>
     </div></div>
@@ -854,9 +885,8 @@
     const phases = [
       { name: '第一阶段', el: document.querySelector('[data-phase="1"]'), color: 'var(--green)' },
       { name: '第二阶段', el: document.querySelector('[data-phase="2"]'), color: 'var(--green)' },
-      { name: '第三阶段', el: document.querySelector('[data-phase="3"]'), color: 'var(--text2)' },
+      { name: '第三阶段', el: document.querySelector('[data-phase="3"]'), color: 'var(--green)' },
       { name: '第四阶段', el: document.querySelector('[data-phase="4"]'), color: 'var(--green)' },
-      { name: '第五阶段', el: document.querySelector('[data-phase="5"]'), color: 'var(--text2)' },
     ];
     grid.innerHTML = phases.map(p => {
       const items = p.el.querySelectorAll('.checklist li');

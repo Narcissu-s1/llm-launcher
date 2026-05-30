@@ -21,15 +21,15 @@ DEFAULT_CONFIG = {
         # Phase 1
         "port": 8080,            # 监听端口
         "host": "127.0.0.1",     # 监听地址
-        "context_size": 4096,    # 上下文大小 (-c)
-        "n_gpu_layers": 0,       # GPU 层数 (--n-gpu-layers)
+        "context_size": 32768,   # 上下文大小 (-c)
+        "n_gpu_layers": -1,      # GPU 层数 (--n-gpu-layers)，-1=全部
         "parallel": 1,           # 并发数 (-np)
         # Phase 2 - KV Cache
         "cache_type_k": "f16",   # K 缓存类型
         "cache_type_v": "f16",   # V 缓存类型
         "kv_unified": True,      # 使用统一 KV 缓存
         "no_kv_offload": False,  # 禁用 KV 缓存卸载到 GPU
-        "flash_attn": False,     # 启用 Flash Attention
+        "flash_attn": "auto",    # Flash Attention (on/off/auto)
         "cache_prompt": True,    # 缓存提示词
         "cache_idle_slots": True,# 空闲槽位可用于缓存
         "cache_ram": 8192,       # prompt cache 内存上限 (MiB)
@@ -41,11 +41,11 @@ DEFAULT_CONFIG = {
         "threads_http": -1,      # HTTP 服务线程数（-1=自动）
         "no_warmup": False,      # 跳过预热
         # Phase 2 - 采样参数
-        "temp": 0.80,            # 温度
+        "temp": 0.60,            # 温度
         "top_k": 40,             # Top-K 采样
-        "top_p": 0.95,           # Top-P 采样
+        "top_p": 0.90,           # Top-P 采样
         "min_p": 0.05,           # Min-P 采样
-        "repeat_penalty": 1.0,   # 重复惩罚
+        "repeat_penalty": 1.10,  # 重复惩罚
         "seed": -1,              # 随机种子（-1=随机）
         "n_predict": -1,         # 最大生成 token 数（-1=无限）
         "ignore_eos": False,     # 忽略结束符持续生成
@@ -59,13 +59,16 @@ DEFAULT_CONFIG = {
         "image_max_tokens": 0,   # 图像最多 token 数
         # Phase 2 - 安全
         "api_key": "",           # API 密钥（空=不启用认证）
-        "timeout": 600,          # 请求超时（秒）
+        "timeout": 1200,         # 请求超时（秒）
         "metrics": False,        # 启用 /metrics 端点
         "slots": True,           # 启用 /slots 端点
+        "tools": False,          # 启用内置 WUI 工具界面（--tools）
     },
     "app": {
         "auto_open_browser": False,  # 启动后自动打开浏览器
         "llama_cpp_dir": "",        # llama.cpp 所在目录（含 dll 等，空则自动搜索）
+        "router_mode": False,       # 路由模式：启用 --models-dir 替代 -m
+        "models_dir": "",           # 路由模式下的模型目录
     },
     "presets": {},  # 预设：{name: {server params...}}
 }

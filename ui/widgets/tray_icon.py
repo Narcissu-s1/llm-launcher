@@ -25,9 +25,10 @@ class TrayIcon(QSystemTrayIcon):
     def __init__(self, window, supervisor: ProcessSupervisor, bus: EventBus):
         # 延迟创建图标，确保 QApplication 已存在
         self._icons = {
-            "running": _make_icon("#1a9e6e"),
-            "stopped": _make_icon("#718096"),
-            "error":   _make_icon("#e53e3e"),
+            "running":  _make_icon("#1a9e6e"),
+            "stopped":  _make_icon("#718096"),
+            "starting": _make_icon("#d69e2e"),
+            "error":    _make_icon("#e53e3e"),
         }
         super().__init__(self._icons["stopped"], window)
         self._window = window
@@ -57,7 +58,10 @@ class TrayIcon(QSystemTrayIcon):
         if status == ProcessStatus.RUNNING:
             self.setIcon(self._icons["running"])
             self.setToolTip("LLM Launcher — 运行中")
-        elif status in (ProcessStatus.CRASHED,):
+        elif status == ProcessStatus.STARTING:
+            self.setIcon(self._icons["starting"])
+            self.setToolTip("LLM Launcher — 启动中...")
+        elif status == ProcessStatus.CRASHED:
             self.setIcon(self._icons["error"])
             self.setToolTip("LLM Launcher — 异常退出")
         else:

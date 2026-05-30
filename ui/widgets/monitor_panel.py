@@ -53,10 +53,12 @@ class _MonitorWorker(QThread):
         stats["mem_pct"] = vm.percent
         # GPU
         try:
+            _flags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
             out = subprocess.check_output(
                 ["nvidia-smi", "--query-gpu=utilization.gpu,memory.used,memory.total",
                  "--format=csv,noheader,nounits"],
-                timeout=2, stderr=subprocess.DEVNULL
+                timeout=2, stderr=subprocess.DEVNULL,
+                creationflags=_flags,
             ).decode().strip()
             parts = out.split(",")
             stats["gpu_util"] = int(parts[0].strip())
@@ -73,22 +75,34 @@ class _StatCard(QFrame):
         self.setFrameShape(QFrame.Shape.StyledPanel)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(2)
         self._lbl = QLabel(label.upper())
         self._lbl.setStyleSheet("font-size:10px;font-weight:600;color:#718096;")
         self._val = QLabel("—")
-        self._val.setStyleSheet("font-family:'DM Mono',Consolas;font-size:20px;font-weight:500;")
+        self._val.setStyleSheet("font-family:'DM Mono',Consolas;font-size:18px;font-weight:600;")
+        self._sub = QLabel("")
+        self._sub.setStyleSheet("font-size:11px;color:#4a5568;font-family:'DM Mono',Consolas;font-weight:500;")
         self._unit = unit
         self._bar = QProgressBar()
         self._bar.setRange(0, 100)
         self._bar.setTextVisible(False)
-        self._bar.setFixedHeight(3)
+        self._bar.setFixedHeight(5)
         layout.addWidget(self._lbl)
         layout.addWidget(self._val)
+        layout.addWidget(self._sub)
         layout.addWidget(self._bar)
 
-    def update(self, value_str: str, pct: int):
+    def update(self, value_str: str, pct: int, sub: str = ""):
         self._val.setText(value_str)
-        self._bar.setValue(max(0, min(100, pct)))
+        pct = max(0, min(100, pct))
+        self._bar.setValue(pct)
+        bar_color = "#e53e3e" if pct >= 80 else "#1a9e6e"
+        self._bar.setStyleSheet(
+            f"QProgressBar{{background:#e2e8f0;border-radius:2px;}}"
+            f"QProgressBar::chunk{{background:{bar_color};border-radius:2px;}}"
+        )
+        self._sub.setText(sub)
+        self._sub.setVisible(bool(sub))
 
 
 class MonitorPanel(QWidget):
@@ -109,16 +123,25 @@ class MonitorPanel(QWidget):
         self._worker.start()
 
     def _update(self, stats: dict):
-        self._cpu_card.update(f"{stats.get('cpu_sys', 0):.0f}%", int(stats.get('cpu_sys', 0)))
-        mem_used = stats.get('mem_used_gb', 0)
-        mem_total = stats.get('mem_total_gb', 1)
-        self._ram_card.update(f"{mem_used:.1f}GB", int(stats.get('mem_pct', 0)))
-        gpu_util = stats.get('gpu_util', 0)
+        cpu_sys = stats.get("cpu_sys", 0)
+        cpu_proc = stats.get("cpu_proc")
+        cpu_sub = f"进程 {cpu_proc:.1f}%" if cpu_proc is not None else ""
+        self._cpu_card.update(f"{cpu_sys:.0f}%", int(cpu_sys), cpu_sub)
+
+        mem_used = stats.get("mem_used_gb", 0)
+        mem_total = stats.get("mem_total_gb", 1)
+        mem_pct = int(stats.get("mem_pct", 0))
+        mem_proc_mb = stats.get("mem_proc_mb")
+        ram_sub = f"进程 {mem_proc_mb:.0f}MB" if mem_proc_mb is not None else ""
+        self._ram_card.update(f"{mem_used:.1f}/{mem_total:.1f}GB", mem_pct, ram_sub)
+
+        gpu_util = stats.get("gpu_util", 0)
         self._gpu_card.update(f"{gpu_util}%", gpu_util)
-        vram_used = stats.get('vram_used_mb', 0) / 1024
-        vram_total = stats.get('vram_total_mb', 1) / 1024
+
+        vram_used = stats.get("vram_used_mb", 0) / 1024
+        vram_total = stats.get("vram_total_mb", 1) / 1024
         vram_pct = int(vram_used / vram_total * 100) if vram_total > 0 else 0
-        self._vram_card.update(f"{vram_used:.1f}GB", vram_pct)
+        self._vram_card.update(f"{vram_used:.1f}/{vram_total:.1f}GB", vram_pct)
 
     def closeEvent(self, event):
         self._worker.stop()
