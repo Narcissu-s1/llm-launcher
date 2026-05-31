@@ -10,6 +10,7 @@ def test_basic_subscribe_and_emit():
         results.append(value)
     bus.on("test_event", handler)
     bus.emit("test_event", value=42)
+    bus.flush()
     assert results == [42]
 
 
@@ -19,6 +20,7 @@ def test_multiple_subscribers_all_called():
     bus.on("e", lambda **kw: a_results.append(1))
     bus.on("e", lambda **kw: b_results.append(1))
     bus.emit("e")
+    bus.flush()
     assert a_results == [1]
     assert b_results == [1]
 
@@ -33,6 +35,7 @@ def test_subscriber_exception_does_not_break_chain():
     bus.on("e", bad)
     bus.on("e", good)
     bus.emit("e")  # 不应抛出
+    bus.flush()
     assert results == [1]
 
 
