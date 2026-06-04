@@ -381,7 +381,7 @@
 | 3 | **方向 7:预设导入导出** | 1d | 用户分享调参经验,社区传播 |
 
 合计 **2 天**。
-**已完成** 报告见 `docs/plans/2026-06-04-core-improvements-from-llama-cpp-hub.md`
+**已完成** 报告见 `docs/report/2026-06-04-core-improvements-from-llama-cpp-hub.md`
 
 ### 5.2 下一阶段(阶段 5 前后,1-2 周)
 

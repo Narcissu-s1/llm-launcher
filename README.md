@@ -20,15 +20,15 @@
 ## 界面预览
 
 <div align="center">
-  <img src="docs/main.png" width="90%" alt="主界面" />
+  <img src="docs/img/main.png" width="90%" alt="主界面" />
   <br/>
   <b>📋 主界面</b> — 参数配置与服务控制
   <br/><br/>
   <table>
     <tr>
-      <td align="center"><img src="docs/model_library.png" width="100%" alt="模型库" /></td>
-      <td align="center"><img src="docs/chat.png" width="100%" alt="聊天面板" /></td>
-      <td align="center"><img src="docs/model_download.png" width="100%" alt="下载面板" /></td>
+      <td align="center"><img src="docs/img/model_library.png" width="100%" alt="模型库" /></td>
+      <td align="center"><img src="docs/img/chat.png" width="100%" alt="聊天面板" /></td>
+      <td align="center"><img src="docs/img/model_download.png" width="100%" alt="下载面板" /></td>
     </tr>
     <tr>
       <td align="center"><b>📚 模型库</b> — 一键切换</td>

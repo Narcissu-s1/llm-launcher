@@ -242,16 +242,21 @@ grep -rn "save_model_preset\|get_model_preset" ui/
 
 **正确做法(CLAUDE.md 工作留痕)**:
 - **每个 commit 必带工作记录** —— 可放在 commit message + 文档
-- 调研类工作:产出 `docs/specs/<date>-<topic>-research.md`
-- 迭代类工作:产出 `docs/plans/<date>-<topic>.md`
+- 调研类工作:产出 `docs/report/<date>-<topic>-research.md`(一次性研究)
+- 实施计划:产出 `docs/plan/<date>-<topic>.md`
+- 设计规范:产出 `docs/spec/<date>-<topic>.md`
+- 迭代复盘:产出 `docs/report/<date>-<topic>.md`
 - **建议**:调研/计划文档 commit 与第一个实现 commit **同步**起草,而不是收尾补
 
 **本项目文档结构**:
 ```
 docs/
-├── plans/    # 实施 / 迭代报告
-├── specs/    # 调研 / 设计
-└── lessons.md  # 经验教训库
+├── plan/      # 实施计划(未来要做)
+├── spec/      # 设计规范(项目当前状态)
+├── report/    # 调研/迭代复盘(历史性)
+├── img/       # 截图资源
+├── lessons.md # 经验教训库
+└── *.html     # 第三方/历史文档
 ```
 
 ---

@@ -1,7 +1,7 @@
 # 迭代报告:路线图 5.1 立即可做 3 件改进
 
 > 迭代日期:2026-06-04
-> 迭代来源:`docs/specs/2026-06-04-llama-cpp-hub-research.md` 路线图 5.1
+> 迭代来源:`docs/report/2026-06-04-llama-cpp-hub-research.md` 路线图 5.1
 > 提交:`7b51242` feat(core): 立即可做 3 件改进 / `d80f3ed` docs(plan): 补迭代报告 / `<本提交>` fix(preset): UI 接入模型专属预设
 > 总耗时:约 1.5 个会话周期（含本轮修复）
 
@@ -113,8 +113,8 @@
 
 ## 六、相关文件
 
-- **本报告**:`docs/plans/2026-06-04-core-improvements-from-llama-cpp-hub.md`
-- **调研报告**:`docs/specs/2026-06-04-llama-cpp-hub-research.md`
+- **本报告**:`docs/report/2026-06-04-core-improvements-from-llama-cpp-hub.md`
+- **调研报告**:`docs/report/2026-06-04-llama-cpp-hub-research.md`
 - **提交**:`7b51242 feat(core): 立即可做 3 件改进 - 原子写/预设导入导出/在线更新`
 
 ## 七、待办(给下一轮)
