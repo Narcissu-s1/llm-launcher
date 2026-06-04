@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 class LlamaLauncherApp(QMainWindow):
+    # 后台线程 → 主线程：更新检查结果（PySide Signal 跨线程自动 queued marshalling）
+    update_info_received = Signal(object)
     def __init__(self):
         super().__init__()
         self.setWindowTitle("LLM Launcher")
@@ -172,6 +174,8 @@ class LlamaLauncherApp(QMainWindow):
             self._control.save_model_preset_for_path
         )
         self._control.started.connect(self._chat.update_model_info)
+        # 后台更新检查完成 → 切到主线程应用
+        self.update_info_received.connect(self._apply_update_info)
 
     def _on_status_changed(self, status_value: str):
         try:
@@ -198,13 +202,12 @@ class LlamaLauncherApp(QMainWindow):
         self._port_label.setText(f":{port}" if status == ProcessStatus.RUNNING else "")
 
     def _on_update_info(self, info: UpdateInfo):
-        """更新检查回调（运行在后台线程，需切回主线程）"""
-        # 用 queued connection 切到 Qt 主线程
-        from PySide6.QtCore import QMetaObject, Qt as _Qt, Q_ARG
-        QMetaObject.invokeMethod(
-            self, "_apply_update_info", _Qt.ConnectionType.QueuedConnection,
-            Q_ARG(object, info),
-        )
+        """更新检查回调（运行在后台线程）—— emit Signal 让 Qt 自动排到主线程"""
+        try:
+            self.update_info_received.emit(info)
+        except RuntimeError:
+            # 对象已被销毁（应用关闭），静默忽略
+            pass
 
     def _apply_update_info(self, info: UpdateInfo):
         """主线程：把更新信息写到状态栏"""
