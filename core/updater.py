@@ -21,8 +21,8 @@ from core._version import __version__
 
 logger = logging.getLogger(__name__)
 
-# 默认仓库（正式发布时改为真实仓库）
-DEFAULT_REPO = "yourname/llm-launcher"
+# 默认仓库（填你的 GitHub 仓库路径）
+DEFAULT_REPO = "Narcissu-s1/llm-launcher"
 API_TIMEOUT = 5  # 秒
 
 
