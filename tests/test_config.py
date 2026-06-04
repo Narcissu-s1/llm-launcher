@@ -63,6 +63,47 @@ def test_损坏文件自动恢复():
         config = store.load()
         # 应返回默认值而非崩溃
         assert config["server"]["port"] == 8080
+        # 损坏文件应被备份（带 .broken- 后缀）
+        import glob
+        backups = glob.glob(tmp_path + ".broken-*")
+        assert len(backups) == 1
+        # 清理备份
+        for b in backups:
+            os.unlink(b)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def test_原子写不留临时文件():
+    """save 后不应残留 .tmp 临时文件"""
+    with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
+        tmp_path = f.name
+
+    try:
+        store = ConfigStore(tmp_path)
+        store.set("server.port", 7777)
+        # 同目录不应有遗留临时文件
+        import glob
+        leftovers = glob.glob(os.path.dirname(tmp_path) + "/.config.*.tmp")
+        assert leftovers == []
+        # 内容确实写入了
+        assert store.get("server.port") == 7777
+    finally:
+        os.unlink(tmp_path)
+
+
+def test_原子写保持原文件可读():
+    """set 多次后 load 仍能读到正确数据（验证原子替换语义）"""
+    with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
+        tmp_path = f.name
+
+    try:
+        store = ConfigStore(tmp_path)
+        for i in range(20):
+            store.set("server.port", 8000 + i)
+        store2 = ConfigStore(tmp_path)
+        assert store2.get("server.port") == 8019
     finally:
         os.unlink(tmp_path)
 

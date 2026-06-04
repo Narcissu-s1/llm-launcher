@@ -5,12 +5,14 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
     QTabWidget, QFrame, QLabel, QSizePolicy
 )
-from PySide6.QtCore import Qt, QByteArray, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Qt, QByteArray, QPropertyAnimation, QEasingCurve, QUrl
+from PySide6.QtGui import QDesktopServices
 
 from core.config import ConfigStore
 from ui import styles
 from core.events import EventBus
 from core.process_manager import ProcessSupervisor, ProcessStatus
+from core.updater import check_update_async, UpdateInfo
 from ui.bridge import AppBridge
 from ui.control_panel import ControlPanel
 from ui.log_panel import LogPanel
@@ -42,6 +44,10 @@ class LlamaLauncherApp(QMainWindow):
         self._connect_signals()
         self._restore_geometry()
         self._tray = TrayIcon(self, self._supervisor, self._bus)
+
+        # 启动后台检查更新（不阻塞 UI）
+        self._update_label = None  # 在 _build_ui 之后绑定
+        check_update_async(self._on_update_info)
 
         # 应用全局样式
         self.setStyleSheet(styles.LIGHT_THEME)
@@ -152,6 +158,11 @@ class LlamaLauncherApp(QMainWindow):
         self.statusBar().addWidget(self._status_label)
         self._port_label = QLabel("")
         self.statusBar().addPermanentWidget(self._port_label)
+        self._update_label = QLabel("")
+        self._update_label.setStyleSheet("color:#1a9e6e; padding:0 8px;")
+        self._update_label.setVisible(False)
+        self._update_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.statusBar().addPermanentWidget(self._update_label)
 
     def _connect_signals(self):
         self._bridge.status_changed.connect(self._on_status_changed)
@@ -182,6 +193,24 @@ class LlamaLauncherApp(QMainWindow):
         self._status_label.setStyleSheet(f"color:{color}; font-weight:bold;")
         port = self._config.get("server.port") or 8080
         self._port_label.setText(f":{port}" if status == ProcessStatus.RUNNING else "")
+
+    def _on_update_info(self, info: UpdateInfo):
+        """更新检查回调（运行在后台线程，需切回主线程）"""
+        # 用 queued connection 切到 Qt 主线程
+        from PySide6.QtCore import QMetaObject, Qt as _Qt, Q_ARG
+        QMetaObject.invokeMethod(
+            self, "_apply_update_info", _Qt.ConnectionType.QueuedConnection,
+            Q_ARG(object, info),
+        )
+
+    def _apply_update_info(self, info: UpdateInfo):
+        """主线程：把更新信息写到状态栏"""
+        if not info.has_update or not self._update_label:
+            return
+        self._update_label.setText(f"🆕 新版本 v{info.latest} → 查看")
+        self._update_label.setVisible(True)
+        url = info.release_url
+        self._update_label.mousePressEvent = lambda _e, u=url: QDesktopServices.openUrl(QUrl(u))
 
     def _restore_geometry(self):
         geo = self._config.get("app.window_geometry") or ""

@@ -3,8 +3,10 @@
 
 import logging
 import os
+import tempfile
 import threading
 from copy import deepcopy
+from datetime import datetime
 from typing import Any
 
 import yaml
@@ -166,8 +168,50 @@ class ConfigStore:
             self._data = self._merge_defaults(loaded, DEFAULT_CONFIG)
         except (yaml.YAMLError, OSError) as e:
             logger.warning("配置文件损坏，使用默认值: %s", e)
+            self._backup_corrupt_file()
             self._data = deepcopy(DEFAULT_CONFIG)
             self._save_unlocked()
+
+    def _backup_corrupt_file(self) -> None:
+        """将损坏的配置文件改名为带时间戳的备份，便于排查"""
+        try:
+            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+            backup = f"{self._config_path}.broken-{ts}"
+            os.replace(self._config_path, backup)
+            logger.info("已备份损坏的配置到: %s", backup)
+        except OSError as e:
+            logger.warning("备份损坏配置失败: %s", e)
+
+    def _save_unlocked(self) -> None:
+        """内部保存方法（不加锁，由调用方持锁）
+
+        写入策略：先写临时文件，再 os.replace 原子替换，避免写到一半断电
+        导致配置文件损坏成空文件。
+        """
+        dir_ = os.path.dirname(self._config_path) or "."
+        os.makedirs(dir_, exist_ok=True)
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                dir=dir_,
+                encoding="utf-8",
+                prefix=".config.",
+                suffix=".tmp",
+                delete=False,
+            ) as f:
+                yaml.safe_dump(
+                    self._data, f, allow_unicode=True, sort_keys=False
+                )
+                tmp_path = f.name
+            os.replace(tmp_path, self._config_path)
+        except Exception:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+            raise
 
     def _save_unlocked(self) -> None:
         """内部保存方法（不加锁，由调用方持锁）"""

@@ -1,7 +1,6 @@
 # ui/control_panel.py
 """左侧控制面板：模型选择、参数配置、预设管理、启停按钮"""
 
-import json
 import logging
 import os
 import sys
@@ -430,21 +429,35 @@ class ControlPanel(QWidget):
             self._refresh_presets()
 
     def _export_presets(self):
+        from core.config_preset import export_presets_to_file
+
         path, _ = QFileDialog.getSaveFileName(
             self, "导出预设", "presets_export.json", "JSON (*.json)"
         )
         if path:
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(self._config.get_presets(), f, ensure_ascii=False, indent=2)
+            try:
+                export_presets_to_file(self._config, path)
+            except OSError as e:
+                QMessageBox.warning(self, "导出失败", f"无法写入文件:\n{e}")
 
     def _import_presets(self):
+        from core.config_preset import import_presets_from_file, PresetFormatError
+
         path, _ = QFileDialog.getOpenFileName(self, "导入预设", "", "JSON (*.json)")
         if not path:
             return
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        for name, params in data.items():
-            self._config.save_preset(name, params)
+        try:
+            result = import_presets_from_file(self._config, path)
+        except (OSError, PresetFormatError) as e:
+            QMessageBox.warning(self, "导入失败", str(e))
+            return
+        self._refresh_presets()
+        QMessageBox.information(
+            self,
+            "导入完成",
+            f"通用预设: {len(result['presets_added'])} 个\n"
+            f"模型专属预设: {len(result['model_presets_added'])} 个",
+        )
         self._refresh_presets()
 
     # ------------------------------------------------------------------
