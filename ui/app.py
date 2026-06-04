@@ -5,8 +5,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
     QTabWidget, QFrame, QLabel, QSizePolicy
 )
-from PySide6.QtCore import Qt, QByteArray, QPropertyAnimation, QEasingCurve, QUrl, Signal
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import Qt, QByteArray, QPropertyAnimation, QEasingCurve, Signal
 
 from core.config import ConfigStore
 from ui import styles
@@ -41,6 +40,8 @@ class LlamaLauncherApp(QMainWindow):
         self._bus = EventBus()
         self._supervisor = ProcessSupervisor(self._bus)
         self._bridge = AppBridge(self._bus)
+        # 状态栏更新提示 label：先占位,_build_ui 会构造并赋值真正的 QLabel
+        self._update_label = None
 
         self._build_ui()
         self._connect_signals()
@@ -48,7 +49,6 @@ class LlamaLauncherApp(QMainWindow):
         self._tray = TrayIcon(self, self._supervisor, self._bus)
 
         # 启动后台检查更新（不阻塞 UI）
-        self._update_label = None  # 在 _build_ui 之后绑定
         check_update_async(self._on_update_info)
 
         # 应用全局样式
@@ -163,6 +163,9 @@ class LlamaLauncherApp(QMainWindow):
         self._update_label = QLabel("")
         self._update_label.setStyleSheet("color:#1a9e6e; padding:0 8px;")
         self._update_label.setVisible(False)
+        # 富文本模式 + 自动打开外部链接（替代 mousePressEvent 重写）
+        self._update_label.setTextFormat(Qt.TextFormat.RichText)
+        self._update_label.setOpenExternalLinks(True)
         self._update_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.statusBar().addPermanentWidget(self._update_label)
 
@@ -210,13 +213,16 @@ class LlamaLauncherApp(QMainWindow):
             pass
 
     def _apply_update_info(self, info: UpdateInfo):
-        """主线程：把更新信息写到状态栏"""
+        """主线程：把更新信息写到状态栏(富文本链接 + setOpenExternalLinks)"""
         if not info.has_update or not self._update_label:
             return
-        self._update_label.setText(f"🆕 新版本 v{info.latest} → 查看")
+        # HTML 转义 URL 防止注入（release_url 来自 GitHub API,理论上安全但习惯性转义）
+        from html import escape
+        url = escape(info.release_url, quote=True)
+        self._update_label.setText(
+            f'🆕 新版本 v{info.latest} → <a href="{url}">查看</a>'
+        )
         self._update_label.setVisible(True)
-        url = info.release_url
-        self._update_label.mousePressEvent = lambda _e, u=url: QDesktopServices.openUrl(QUrl(u))
 
     def _restore_geometry(self):
         geo = self._config.get("app.window_geometry") or ""
