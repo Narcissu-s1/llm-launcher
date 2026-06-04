@@ -21,6 +21,7 @@
 | L09 | [UI 归属调整要走 signal 路由,不要直接耦合](#l09) | `0825231` |
 | L10 | [签名同步修改,占位常量 `yourname/xxx` 提交前必填](#l10) | `7b51242` |
 | L11 | [不要用插件目录(`docs/superpowers/`)放项目文档](#l11) | 本次迁移 |
+| L12 | [init 子类属性顺序:子类不要在父类初始化前覆盖属性](#l12) | 本次 |
 
 ---
 
@@ -340,6 +341,46 @@ git mv docs/superpowers/specs docs/specs
 git mv docs/superpowers/lessons.md docs/lessons.md
 # 顺手修文档内的交叉引用(本项目修了 3 处)
 ```
+
+---
+
+<a id="l12"></a>
+## L12 — `__init__` 里赋值顺序:不要用 `None` 覆盖 `_build_ui` 已经赋好的属性
+
+**场景**:`LlamaLauncherApp.__init__` 里:
+```python
+self._build_ui()                # 内部 self._update_label = QLabel(...)
+...
+self._tray = TrayIcon(...)
+self._update_label = None       # ← 覆盖了 _build_ui 的赋值!
+check_update_async(self._on_update_info)
+```
+注释还写着"在 _build_ui 之后绑定"——但实际逻辑是**覆盖**。
+
+**错误信号**:
+- `_update_label is None` 即使在完整 UI 构造后
+- 测试加 `_update_label` 断言时全失败
+- 真实运行时若代码路径"先 None 初始化再被覆盖"则**可能永远 None**
+
+**根因**:
+- `_build_ui` 已经初始化 `self._update_label` 为 `QLabel(...)`
+- 后续 `self._update_label = None` 把它**重置**回 None
+- 注释是"占位"语义,代码是"覆盖"语义,二者矛盾
+
+**正确做法**:
+- 占位初始化放**最早**(在 `super().__init__()` 之后立即):
+  ```python
+  def __init__(self):
+      super().__init__()
+      self._update_label = None  # ← 占位,_build_ui 会覆盖
+      ...
+      self._build_ui()  # 真的赋值在这里
+  ```
+- 或者干脆**不写占位 None**,直接相信 `_build_ui` 会赋值,在访问前断言
+
+**检测**:
+- `grep "self\._\w\+ = None" 同一文件多次出现` — 多次出现说明可能覆盖
+- `pytest` 构造实例后断言关键属性非 None(本项目新增 `test_update_callback.py` 就是这么发现的)
 
 ---
 

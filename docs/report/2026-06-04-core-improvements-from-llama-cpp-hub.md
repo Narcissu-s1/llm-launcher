@@ -203,3 +203,60 @@ tests/test_config_preset.py: 10 passed (含本轮 3 个新增)
 - **`AppBridge` 的 `Signal.emit` 在 background thread 触发,Direct connection + Qt 跨线程行为要 `processEvents()`**
 - **默认值变更的测试要随实现同步**——建议在 `core/config.py` 的 `DEFAULT_CONFIG` 加注释说明变更影响范围,或加 `assert DEFAULT_CONFIG["server"]["temp"] == 0.6` 在 `__init__` 启动时自检
 - **不要因为"测试是预存在失败"就跳过**——用户视角看不到这个区分
+
+## 十、补 UI 测试 + 修 _apply_update_info(2026-06-04 第四轮)
+
+用户要求"改正这两点"——本轮 13 个新测试,把全量从 63/63 推到 76/76,并修一个 _update_label 预存在 bug。
+
+### 10.1 改动
+
+**`ui/app.py:_apply_update_info`** — 改用 `linkActivated` 风格:
+- `_build_ui` 状态栏 label 初始化时加 `setTextFormat(RichText)` + `setOpenExternalLinks(True)`
+- 方法体内用富文本 `<a href="...">查看</a>`,Qt 自动处理点击 → 浏览器
+- 移除 `mousePressEvent = lambda ...` 的 monkey-patch
+- 清理不再用的 imports:`QUrl`、`QDesktopServices`
+- `from html import escape(quote=True)` 转义 URL 防止注入
+
+**`ui/app.py:__init__`** — 顺手修预存在 bug:
+- 原:`self._update_label = None` 在 `self._build_ui()` **之后** → 覆盖了 `_build_ui` 里的 `QLabel(...)` 赋值
+- 改:None 占位挪到 `super().__init__()` 后、`_build_ui` 前
+- 发现的契机:新写的测试断言 `launcher_app._update_label.text()` 时,`_update_label` 是 `None` 而非 QLabel
+
+### 10.2 新增测试
+
+**`tests/test_control_panel_io.py`** — 9 个:
+- `_export_presets`:成功/用户取消
+- `_import_presets`:成功/用户取消/格式错误
+- `save_model_preset_for_path`:空路径/新预设/覆盖已存在/取消覆盖
+
+策略:`patch("ui.control_panel.QFileDialog...")` mock 文件对话框,`patch("ui.control_panel.QMessageBox...")` mock 弹窗。验证数据流和弹窗次数/文案。
+
+**`tests/test_update_callback.py`** — 4 个:
+- `has_update=False` 不改 label.text
+- `has_update=True` 写富文本链接
+- `_update_label.openExternalLinks() is True`
+- `signal.emit(info) + processEvents()` 端到端触发
+
+策略:mock `TrayIcon` + `check_update_async` 避免副作用,构造完整 `LlamaLauncherApp`,直接 emit signal。
+
+### 10.3 验证
+
+```
+============================= 76 passed in 3.61s ==============================
+```
+
+### 10.4 教训(写入 lessons.md L12)
+
+- **`__init__` 顺序**:子类不要在父类已经初始化属性后又用 `None` 覆盖
+- **PySide6 `QLabel` 富文本链接**:`setOpenExternalLinks(True)` 是官方推荐,不要 monkey-patch `mousePressEvent`
+- **`isVisible()` vs `isVisibleTo(None)`**:没 `show()` 的 widget,前者 False;测试构造的 app 默认没 show,应断言 `text()` 等内容属性而非可见性
+- **`QMetaObject.invokeMethod + Q_ARG(object)` 已知失败**(L03),测试**也别用**这条路,直接 `signal.emit() + processEvents()`
+
+### 10.5 提交
+
+本轮 3 个提交:
+1. `test: 补 ControlPanel 导入/导出/模型专属预设 UI 测试`
+2. `refactor(app): _apply_update_info 改用 linkActivated 风格,修 _update_label 覆盖 bug`
+3. `test: 补 _apply_update_info 单元测试`
+
+注:第 2、3 个提交拆为两步,因第 1 个测试发现 bug 后必须先修才能继续。
