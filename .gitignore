@@ -34,6 +34,8 @@ htmlcov/
 .serena/
 .codegraph/
 .claude/
+skills-lock.json
+gguf_info.py
 
 # 构建脚本
 C编译.bat
