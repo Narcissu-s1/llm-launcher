@@ -12,6 +12,7 @@ from core.model_library import ModelInfo, _parse_gguf, format_size
 class ModelLibraryPanel(QWidget):
     switch_model = Signal(str)
     models_changed = Signal(list)  # emit list[ModelInfo]
+    request_model_preset_save = Signal(str)  # 携带被选中的模型路径
 
     @property
     def models(self):
@@ -57,10 +58,17 @@ class ModelLibraryPanel(QWidget):
         layout.addWidget(self._table)
 
         btn_row = QHBoxLayout()
+        btn_save_model_preset = QPushButton("保存为此模型专属预设")
+        btn_save_model_preset.setEnabled(False)
+        btn_save_model_preset.clicked.connect(self._save_model_preset)
+        self._btn_save_model_preset = btn_save_model_preset
         btn_use = QPushButton("使用此模型"); btn_use.setObjectName("btnPrimary")
         btn_use.clicked.connect(self._use_selected)
-        btn_row.addStretch(); btn_row.addWidget(btn_use)
+        btn_row.addStretch()
+        btn_row.addWidget(btn_save_model_preset)
+        btn_row.addWidget(btn_use)
         layout.addLayout(btn_row)
+        self._table.itemSelectionChanged.connect(self._on_selection_changed)
 
         # 启动时加载缓存（不重新扫描）
         d = self._dir_input.text()
@@ -111,6 +119,19 @@ class ModelLibraryPanel(QWidget):
         row = rows[0].row()
         if row < len(self._models):
             self.switch_model.emit(self._models[row].path)
+
+    def _on_selection_changed(self):
+        """选中行时启用'保存为专属预设'按钮"""
+        self._btn_save_model_preset.setEnabled(bool(self._table.selectedIndexes()))
+
+    def _save_model_preset(self):
+        """请求把当前参数保存为选中模型的专属预设"""
+        rows = self._table.selectedIndexes()
+        if not rows:
+            return
+        row = rows[0].row()
+        if row < len(self._models):
+            self.request_model_preset_save.emit(self._models[row].path)
 
     def _populate_table(self):
         self._table.setRowCount(0)

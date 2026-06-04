@@ -168,6 +168,9 @@ class LlamaLauncherApp(QMainWindow):
         self._bridge.status_changed.connect(self._on_status_changed)
         self._bridge.log_line.connect(self._log_panel.add_line)
         self._library.switch_model.connect(self._control.on_switch_model)
+        self._library.request_model_preset_save.connect(
+            self._control.save_model_preset_for_path
+        )
         self._control.started.connect(self._chat.update_model_info)
 
     def _on_status_changed(self, status_value: str):

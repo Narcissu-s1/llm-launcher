@@ -162,12 +162,11 @@ class ControlPanel(QWidget):
         self._btn_preset_delete = QPushButton("删除")
         self._btn_preset_export = QPushButton("导出")
         self._btn_preset_import = QPushButton("导入")
-        self._btn_model_preset_save = QPushButton("按模型存")
         pl.addWidget(self._preset_combo)
         pl.setSpacing(2)
         for btn in [self._btn_preset_save, self._btn_preset_load,
                    self._btn_preset_delete, self._btn_preset_export,
-                   self._btn_preset_import, self._btn_model_preset_save]:
+                   self._btn_preset_import]:
             btn.setStyleSheet("QPushButton { padding: 6px 4px; min-width: 0px; }")
             pl.addWidget(btn)
         self._btn_preset_save.clicked.connect(self._save_preset)
@@ -175,7 +174,6 @@ class ControlPanel(QWidget):
         self._btn_preset_delete.clicked.connect(self._delete_preset)
         self._btn_preset_export.clicked.connect(self._export_presets)
         self._btn_preset_import.clicked.connect(self._import_presets)
-        self._btn_model_preset_save.clicked.connect(self._save_model_preset)
         root.addWidget(preset_box)
 
         # 选项行
@@ -394,6 +392,14 @@ class ControlPanel(QWidget):
         path = self._model_path.text().strip()
         if not path:
             QMessageBox.warning(self, "无法保存", "请先选择模型")
+            return
+        self.save_model_preset_for_path(path)
+
+    def save_model_preset_for_path(self, path: str):
+        """按指定模型路径保存专属预设（供模型库面板调用）"""
+        from core.model_library import model_name_from_path
+        if not path:
+            QMessageBox.warning(self, "无法保存", "模型路径为空")
             return
         name = model_name_from_path(path)
         params = self.collect_params()
