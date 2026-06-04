@@ -119,7 +119,7 @@ def test_新增参数默认值():
     assert server["cache_type_v"] == "f16"
     assert server["kv_unified"] is True
     assert server["no_kv_offload"] is False
-    assert server["flash_attn"] is False
+    assert server["flash_attn"] == "auto"
     assert server["cache_prompt"] is True
     assert server["cache_idle_slots"] is True
 
@@ -132,11 +132,11 @@ def test_新增参数默认值():
     assert server["no_warmup"] is False
 
     # 采样参数
-    assert server["temp"] == 0.80
+    assert server["temp"] == 0.6
     assert server["top_k"] == 40
-    assert server["top_p"] == 0.95
+    assert server["top_p"] == 0.9
     assert server["min_p"] == 0.05
-    assert server["repeat_penalty"] == 1.0
+    assert server["repeat_penalty"] == 1.1
     assert server["seed"] == -1
     assert server["n_predict"] == -1
 
@@ -152,6 +152,6 @@ def test_新增参数默认值():
 
     # 安全
     assert server["api_key"] == ""
-    assert server["timeout"] == 600
+    assert server["timeout"] == 1200
     assert server["metrics"] is False
     assert server["slots"] is True

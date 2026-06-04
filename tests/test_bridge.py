@@ -20,6 +20,8 @@ def test_bridge_emits_log_line(qt_app):
     received = []
     bridge.log_line.connect(received.append)
     bus.emit(EVENT_LOG_LINE, line="hello")
+    bus.flush()
+    qt_app.processEvents()
     assert received == ["hello"]
 
 
@@ -32,6 +34,8 @@ def test_bridge_emits_status_changed(qt_app):
     received = []
     bridge.status_changed.connect(received.append)
     bus.emit(EVENT_STATUS_CHANGED, status="running", old_status="stopped")
+    bus.flush()
+    qt_app.processEvents()
     assert received == ["running"]
 
 
@@ -44,6 +48,8 @@ def test_bridge_emits_stats_update(qt_app):
     received = []
     bridge.stats_update.connect(received.append)
     bus.emit(EVENT_STATS_UPDATE, cpu=12.5, memory=1024)
+    bus.flush()
+    qt_app.processEvents()
     assert len(received) == 1
     assert received[0]["cpu"] == 12.5
     assert received[0]["memory"] == 1024

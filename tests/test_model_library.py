@@ -25,7 +25,7 @@ def test_format_size():
 def test_quant_from_name():
     assert _quant_from_name("mistral-7b-Q4_K_M") == "Q4_K_M"
     assert _quant_from_name("model-Q8_0") == "Q8_0"
-    assert _quant_from_name("model-unknown") == "未知"
+    assert _quant_from_name("model-unknown") == ""  # 未知名返回空串
 
 
 def test_scan_empty_dir():

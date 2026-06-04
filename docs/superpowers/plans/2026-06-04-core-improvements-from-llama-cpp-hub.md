@@ -120,7 +120,6 @@
 ## 七、待办(给下一轮)
 
 - [ ] 路线图 5.2 的 5 件事,按优先级 4 → 5 → 6 → 7 → 8 顺序推进
-- [ ] 确认 `core/updater.py` 的 `DEFAULT_REPO` 实际仓库名
 - [ ] 调研报告与本迭代报告的交叉链接
 
 ## 八、本轮补充(2026-06-04 第二轮)
@@ -161,3 +160,46 @@ tests/test_config_preset.py: 10 passed (含本轮 3 个新增)
 - 对 ≥ 30 行,先用 `find_symbol` + `depth=0` 看 body_location 的 start/end,**或**用 `Read` 拿全文再用 `Edit` 精确改
 - 永远不要相信"我只动了中间一段"——`replace_symbol_body` 的语义是"整段替换"
 - 修改前先 git diff 看一下,确保范围正确
+
+## 九、修复 10 个预存在测试失败(2026-06-04 第三轮)
+
+用户要求"全都修复",把全量测试从 53/63 推到 63/63。
+
+### 9.1 失败归类
+
+| 类别 | 失败数 | 根因 | 修复方向 |
+|---|---|---|---|
+| A. EventBus 异步期望 | 7 | 测试把异步当同步用,没 `flush()` / `processEvents()` | 改测试 |
+| B. 默认值已变更 | 1 | `flash_attn`/`temp`/`top_p`/`repeat_penalty`/`timeout` 实际值已变 | 改测试 |
+| C. 量化推断 | 1 | `_quant_from_name` 未知名返回 `""`,测试期望 `"未知"` | 改测试(实现保留) |
+| D. 进程状态机 | 1 | 异步 emit,测试没 flush | 改测试 |
+
+### 9.2 改动
+
+**A 类 7 个** — `tests/test_events.py` / `tests/test_bridge.py` / `tests/test_process_manager.py`:
+- `bus.emit()` 后加 `bus.flush()` 等异步分发
+- `test_bridge.py` 还需 `qt_app.processEvents()` 强制 Qt 事件循环 pump(DirectConnection 跨线程)
+- `tests/test_process_manager.py::test_PID不存在时切换为crashed` 同理
+
+**B 类 1 个** — `tests/test_config.py`:
+- `flash_attn`: `is False` → `== "auto"`
+- `temp`: 0.80 → 0.6
+- `top_p`: 0.95 → 0.9
+- `repeat_penalty`: 1.0 → 1.1
+- `timeout`: 600 → 1200
+
+**C 类 1 个** — `tests/test_model_library.py`:
+- `_quant_from_name("model-unknown") == "未知"` → `== ""`,加注释
+
+### 9.3 验证
+
+```
+============================= 63 passed in 1.74s ==============================
+```
+
+### 9.4 教训
+
+- **EventBus 是异步的,所有 `emit → 断言` 的测试必须 `bus.flush()`**
+- **`AppBridge` 的 `Signal.emit` 在 background thread 触发,Direct connection + Qt 跨线程行为要 `processEvents()`**
+- **默认值变更的测试要随实现同步**——建议在 `core/config.py` 的 `DEFAULT_CONFIG` 加注释说明变更影响范围,或加 `assert DEFAULT_CONFIG["server"]["temp"] == 0.6` 在 `__init__` 启动时自检
+- **不要因为"测试是预存在失败"就跳过**——用户视角看不到这个区分

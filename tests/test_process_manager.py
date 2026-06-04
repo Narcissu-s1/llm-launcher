@@ -88,6 +88,7 @@ def test_PID不存在时切换为crashed():
 
     with patch("psutil.pid_exists", return_value=False):
         sup._check_process()
+    bus.flush()
 
     crashed_events = [e for e in events if e.get("status") == "crashed"]
     assert len(crashed_events) == 1
