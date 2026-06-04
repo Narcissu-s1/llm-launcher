@@ -162,10 +162,12 @@ class ControlPanel(QWidget):
         self._btn_preset_delete = QPushButton("删除")
         self._btn_preset_export = QPushButton("导出")
         self._btn_preset_import = QPushButton("导入")
+        self._btn_model_preset_save = QPushButton("按模型存")
         pl.addWidget(self._preset_combo)
         pl.setSpacing(2)
         for btn in [self._btn_preset_save, self._btn_preset_load,
-                   self._btn_preset_delete, self._btn_preset_export, self._btn_preset_import]:
+                   self._btn_preset_delete, self._btn_preset_export,
+                   self._btn_preset_import, self._btn_model_preset_save]:
             btn.setStyleSheet("QPushButton { padding: 6px 4px; min-width: 0px; }")
             pl.addWidget(btn)
         self._btn_preset_save.clicked.connect(self._save_preset)
@@ -173,6 +175,7 @@ class ControlPanel(QWidget):
         self._btn_preset_delete.clicked.connect(self._delete_preset)
         self._btn_preset_export.clicked.connect(self._export_presets)
         self._btn_preset_import.clicked.connect(self._import_presets)
+        self._btn_model_preset_save.clicked.connect(self._save_model_preset)
         root.addWidget(preset_box)
 
         # 选项行
@@ -385,6 +388,27 @@ class ControlPanel(QWidget):
         self._config.save_preset(name, self.collect_params())
         self._refresh_presets()
 
+    def _save_model_preset(self):
+        """把当前参数按当前模型名保存为专属预设"""
+        from core.model_library import model_name_from_path
+        path = self._model_path.text().strip()
+        if not path:
+            QMessageBox.warning(self, "无法保存", "请先选择模型")
+            return
+        name = model_name_from_path(path)
+        params = self.collect_params()
+        # 专属预设就是按这个路径存的，自身不再带 model_path
+        params.pop("model_path", None)
+        existing = self._config.get_model_preset(name)
+        if existing:
+            dlg = ConfirmDialog(f'覆盖模型专属预设 "{name}"？', self)
+            if not dlg.exec():
+                return
+        self._config.save_model_preset(name, params)
+        QMessageBox.information(
+            self, "已保存", f'已为模型 "{name}" 保存专属预设'
+        )
+
     def _load_preset(self):
         name = self._preset_combo.currentText()
         if not name:
@@ -499,10 +523,16 @@ class ControlPanel(QWidget):
         self._config.set("model.last_path", path)
 
         # 自动检测同目录 mmproj，找不到则清空（避免残留旧路径导致不匹配）
-        from core.model_library import find_mmproj
+        from core.model_library import find_mmproj, model_name_from_path
         mmproj = find_mmproj(path)
         self._mmproj_path.setText(mmproj)
         self._config.set("model.mmproj_path", mmproj)
+
+        # 加载该模型的专属预设（如有）
+        name = model_name_from_path(path)
+        preset = self._config.get_model_preset(name)
+        if preset:
+            self._restore_from_preset(preset)
 
         self._update_ctx_for_model(path)
 

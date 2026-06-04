@@ -2,8 +2,8 @@
 
 > 迭代日期:2026-06-04
 > 迭代来源:`docs/superpowers/specs/2026-06-04-llama-cpp-hub-research.md` 路线图 5.1
-> 提交:`7b51242 feat(core): 立即可做 3 件改进 - 原子写/预设导入导出/在线更新`
-> 总耗时:约 1 个会话周期
+> 提交:`7b51242` feat(core): 立即可做 3 件改进 / `d80f3ed` docs(plan): 补迭代报告 / `<本提交>` fix(preset): UI 接入模型专属预设
+> 总耗时:约 1.5 个会话周期（含本轮修复）
 
 ## 一、目标与背景
 
@@ -108,6 +108,8 @@
 - **DEFAULT_REPO 占位**:`"yourname/llm-launcher"` 是占位,应在发布前确认仓库名
 - **UI 测试缺失**:`ui/control_panel.py` 的导入/导出、`ui/app.py` 的更新回调没有自动化测试(项目原有惯例,本次未打破)
 - **`_apply_update_info` 用了 `mousePressEvent` 重写** + `lambda` 捕获,不够优雅;PyQt 推荐用 `QLabel.linkActivated` + 自定义 QEventFilter,但当前实现功能正确
+- **【本轮发现】模型专属预设原本是死功能**:`core/config.py` 有 `save_model_preset` / `get_model_preset`,`core/config_preset.py` 也支持导入导出,但**生产 UI 没有任何按钮触发**——任何 `model_presets` 配置项对用户都是死数据;导入对话框却把"模型专属预设: N 个"当成功展示,有误导。本轮按选项 B 接成活功能:在预设区加"按模型存"按钮 + `on_switch_model` 末尾自动应用该模型的专属预设(与原型版本 TUI 一致)
+- **【本轮教训】`mcp__serena__replace_symbol_body` 不适合改长方法**:对 `_build_ui`(170+ 行)用它会误删上下文,应先用 `find_symbol + include_body=False + depth=0` 确认范围,或改用 `replace_content` 做精确小范围替换
 
 ## 六、相关文件
 
@@ -120,3 +122,42 @@
 - [ ] 路线图 5.2 的 5 件事,按优先级 4 → 5 → 6 → 7 → 8 顺序推进
 - [ ] 确认 `core/updater.py` 的 `DEFAULT_REPO` 实际仓库名
 - [ ] 调研报告与本迭代报告的交叉链接
+
+## 八、本轮补充(2026-06-04 第二轮)
+
+### 8.1 用户反馈:"模型专属预设是什么?现在代码有这个功能吗?"
+
+自我复盘发现上一轮把"死功能当活功能展示":
+- `core/config.py` 的 `get_model_preset` / `save_model_preset` 数据层完整
+- `core/config_preset.py` 的导入/导出也支持 `model_presets`
+- 但 UI 层**没有任何按钮调它**——属于 prototype 留下的半成品
+- 导入对话框"模型专属预设: N 个"的提示会误导用户
+
+### 8.2 修复
+
+**改 `ui/control_panel.py`:**
+- 预设区加"按模型存"按钮(用 `replace_content` 精确插入,不碰其他 100+ 行 UI)
+- 新增 `_save_model_preset` 方法:按当前 `_model_path` 推导模型名 → `cfg.save_model_preset`
+- `on_switch_model` 末尾:有专属预设就自动 `_restore_from_preset`(对齐原型 TUI 的体验)
+
+**改 `core/model_library.py`:**
+- 新增 `model_name_from_path(path)`:从路径提取去扩展名的文件名
+
+**改 `tests/test_config_preset.py`:**
+- +3 个测试:`model_name_from_path` / 通用与专属预设隔离 / 同名覆盖
+
+### 8.3 验证
+
+```
+tests/test_config_preset.py: 10 passed (含本轮 3 个新增)
+```
+
+### 8.4 教训(写入 skill:避免 `mcp__serena__replace_symbol_body` 误改长方法)
+
+**本轮踩坑**:`replace_symbol_body` 对 `_build_ui`(170+ 行)使用时,**只给 body 内容**会把整个 method signature 和函数头删掉,留下游离的 body。
+
+**正确做法**:
+- 对 < 30 行的方法,`replace_symbol_body` 安全
+- 对 ≥ 30 行,先用 `find_symbol` + `depth=0` 看 body_location 的 start/end,**或**用 `Read` 拿全文再用 `Edit` 精确改
+- 永远不要相信"我只动了中间一段"——`replace_symbol_body` 的语义是"整段替换"
+- 修改前先 git diff 看一下,确保范围正确

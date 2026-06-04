@@ -137,3 +137,38 @@ def test_导入追加而非覆盖整个预设集():
         assert src.get_presets() == {"p": {"new": True}}
     finally:
         os.unlink(src_path)
+
+
+def test_model_name_from_path():
+    """GGUF 路径应能正确提取去后缀的模型名"""
+    from core.model_library import model_name_from_path
+    assert model_name_from_path("D:/models/qwen2.5-7b-instruct-q4_k_m.gguf") \
+        == "qwen2.5-7b-instruct-q4_k_m"
+    assert model_name_from_path("C:\\models\\sub\\llama-3.1-8b.Q8_0.gguf") \
+        == "llama-3.1-8b.Q8_0"
+    assert model_name_from_path("a.gguf") == "a"
+    assert model_name_from_path("/no/dir/") == ""  # 无文件名返回空
+
+
+def test_专属预设与通用预设隔离():
+    """get_presets / get_model_preset 应互不干扰"""
+    store, path = _new_store()
+    try:
+        store.save_preset("通用", {"temp": 0.5})
+        store.save_model_preset("qwen-7b", {"temp": 0.2})
+        assert store.get_presets() == {"通用": {"temp": 0.5}}
+        assert store.get_model_preset("qwen-7b") == {"temp": 0.2}
+        assert store.get_model_preset("通用") == {}  # 通用预设不算模型专属
+    finally:
+        os.unlink(path)
+
+
+def test_专属预设可被同名覆盖():
+    """同名模型再次保存应覆盖"""
+    store, path = _new_store()
+    try:
+        store.save_model_preset("m", {"a": 1})
+        store.save_model_preset("m", {"b": 2})
+        assert store.get_model_preset("m") == {"b": 2}
+    finally:
+        os.unlink(path)

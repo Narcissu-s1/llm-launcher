@@ -18,6 +18,7 @@ config.yaml
 model_cache.json
 crash.log
 nul
+presets_export.json
 
 # IDE
 .vscode/

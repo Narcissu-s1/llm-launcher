@@ -71,6 +71,15 @@ def find_mmproj(model_path: str) -> str:
     return ""
 
 
+def model_name_from_path(model_path: str) -> str:
+    """从 GGUF 路径提取模型名（去后缀的文件名）
+
+    用于按模型名保存专属预设：'D:/models/qwen2.5-7b-instruct-q4_k_m.gguf'
+    -> 'qwen2.5-7b-instruct-q4_k_m'
+    """
+    return os.path.splitext(os.path.basename(model_path))[0]
+
+
 def _parse_gguf(path: str) -> ModelInfo:
     """解析 GGUF 文件头，提取量化类型和参数量"""
     name = os.path.splitext(os.path.basename(path))[0]
