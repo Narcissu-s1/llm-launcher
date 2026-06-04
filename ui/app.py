@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSplitter,
     QTabWidget, QFrame, QLabel, QSizePolicy
 )
-from PySide6.QtCore import Qt, QByteArray, QPropertyAnimation, QEasingCurve, QUrl
+from PySide6.QtCore import Qt, QByteArray, QPropertyAnimation, QEasingCurve, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 
 from core.config import ConfigStore
