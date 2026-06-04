@@ -20,6 +20,7 @@
 | L08 | [调研报告要随实现同步归档,迭代报告必写](#l08) | `d80f3ed` |
 | L09 | [UI 归属调整要走 signal 路由,不要直接耦合](#l09) | `0825231` |
 | L10 | [签名同步修改,占位常量 `yourname/xxx` 提交前必填](#l10) | `7b51242` |
+| L11 | [不要用插件目录(`docs/superpowers/`)放项目文档](#l11) | 本次迁移 |
 
 ---
 
@@ -241,15 +242,16 @@ grep -rn "save_model_preset\|get_model_preset" ui/
 
 **正确做法(CLAUDE.md 工作留痕)**:
 - **每个 commit 必带工作记录** —— 可放在 commit message + 文档
-- 调研类工作:产出 `docs/superpowers/specs/<date>-<topic>-research.md`
-- 迭代类工作:产出 `docs/superpowers/plans/<date>-<topic>.md`
+- 调研类工作:产出 `docs/specs/<date>-<topic>-research.md`
+- 迭代类工作:产出 `docs/plans/<date>-<topic>.md`
 - **建议**:调研/计划文档 commit 与第一个实现 commit **同步**起草,而不是收尾补
 
 **本项目文档结构**:
 ```
-docs/superpowers/
-├── specs/   # 调研 / 设计
-└── plans/   # 实施 / 迭代报告
+docs/
+├── plans/    # 实施 / 迭代报告
+├── specs/    # 调研 / 设计
+└── lessons.md  # 经验教训库
 ```
 
 ---
@@ -296,6 +298,43 @@ docs/superpowers/
           raise ValueError("请先在 core/updater.py 设置 DEFAULT_REPO")
   ```
 - 或在 `__init__` 加 self-check:`assert DEFAULT_REPO != "yourname/..."`
+
+---
+
+<a id="l11"></a>
+## L11 — 不要用插件目录放项目文档
+
+**场景**:把项目自己的设计文档/调研/迭代报告放在 `docs/superpowers/{plans,specs}/` 下。
+
+**错误信号**:
+- 用户/维护者看到目录,误以为是 superpowers 插件自身的配置
+- 迁移时(插件升级/卸载)有丢失风险
+- 文档不应该被插件生命周期管理
+
+**根因**:
+- `docs/superpowers/` 是 **superpowers 插件的工作目录**(它约定俗成的位置)
+- 项目自己不应"借用"插件目录
+- 这是命名空间污染
+
+**正确做法**:
+- 项目文档放项目自有目录:
+  ```
+  docs/
+  ├── plans/      # 实施 / 迭代报告
+  ├── specs/      # 调研 / 设计
+  └── lessons.md  # 经验教训
+  ```
+- **判断标准**:问自己"卸载 superpowers 插件后,这些文件还应该存在吗?"
+  - 答"应该" → 不在 `docs/superpowers/`
+  - 答"无所谓" → 也别放,图省事会留隐患
+
+**迁移方法**(已落地的 10 个文件):
+```bash
+git mv docs/superpowers/plans docs/plans
+git mv docs/superpowers/specs docs/specs
+git mv docs/superpowers/lessons.md docs/lessons.md
+# 顺手修文档内的交叉引用(本项目修了 3 处)
+```
 
 ---
 
