@@ -251,6 +251,8 @@ class ProcessSupervisor:
             cmd.extend(["-ub", str(params["ubatch_size"])])
         if params.get("threads_http", -1) != -1:
             cmd.extend(["--threads-http", str(params["threads_http"])])
+        if params.get("n_cpu_moe", -1) != -1:
+            cmd.extend(["--n-cpu-moe", str(params["n_cpu_moe"])])
         if params.get("no_warmup", False):
             cmd.append("--no-warmup")
         if not params.get("jinja", True):
@@ -319,6 +321,8 @@ class ProcessSupervisor:
             cmd.extend(["--spec-draft-p-split", str(params["spec_draft_p_split"])])
         if abs(params.get("spec_draft_p_min", 0.0) - 0.0) > 0.001:
             cmd.extend(["--spec-draft-p-min", str(params["spec_draft_p_min"])])
+        if params.get("spec_draft_model"):
+            cmd.extend(["-md", _safe_path(params["spec_draft_model"])])
 
         return cmd
 

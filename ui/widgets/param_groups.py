@@ -104,6 +104,7 @@ class InferenceParams(_CollapsibleGroup):
         self._batch = QSpinBox(); self._batch.setRange(1, 65536); self._batch.setValue(2048)
         self._ubatch = QSpinBox(); self._ubatch.setRange(1, 65536); self._ubatch.setValue(512)
         self._threads_http = QSpinBox(); self._threads_http.setRange(-1, 256); self._threads_http.setValue(-1)
+        self._n_cpu_moe = QSpinBox(); self._n_cpu_moe.setRange(-1, 256); self._n_cpu_moe.setValue(-1)
         self._no_warmup = QCheckBox("跳过预热")
         self._jinja = QCheckBox("启用 Jinja 模板 (--jinja)")
         self._jinja.setChecked(True)
@@ -115,6 +116,7 @@ class InferenceParams(_CollapsibleGroup):
         form.addRow("逻辑批大小 (-b)", self._batch)
         form.addRow("物理批大小 (-ub)", self._ubatch)
         form.addRow("HTTP 线程数", self._threads_http)
+        form.addRow("CPU MoE 层数 (--n-cpu-moe)", self._n_cpu_moe)
         form.addRow("", self._no_warmup)
         form.addRow("", self._jinja)
         form.addRow("", self._context_shift)
@@ -129,6 +131,7 @@ class InferenceParams(_CollapsibleGroup):
             "batch_size": self._batch.value() if self._batch.value() != 2048 else None,
             "ubatch_size": self._ubatch.value() if self._ubatch.value() != 512 else None,
             "threads_http": self._threads_http.value() if self._threads_http.value() != -1 else None,
+            "n_cpu_moe": self._n_cpu_moe.value() if self._n_cpu_moe.value() != -1 else None,
             "no_warmup": self._no_warmup.isChecked(),
             "jinja": self._jinja.isChecked(),
             "context_shift": self._context_shift.isChecked(),
@@ -142,6 +145,7 @@ class InferenceParams(_CollapsibleGroup):
         if "batch_size" in d: self._batch.setValue(d["batch_size"])
         if "ubatch_size" in d: self._ubatch.setValue(d["ubatch_size"])
         if "threads_http" in d and d["threads_http"]: self._threads_http.setValue(d["threads_http"])
+        if "n_cpu_moe" in d and d["n_cpu_moe"]: self._n_cpu_moe.setValue(d["n_cpu_moe"])
         if "no_warmup" in d: self._no_warmup.setChecked(d["no_warmup"])
 
 
@@ -279,11 +283,13 @@ class SpeculativeParams(_CollapsibleGroup):
         self._draft_n_min = QSpinBox(); self._draft_n_min.setRange(0, 64); self._draft_n_min.setValue(0)
         self._draft_p_split = QDoubleSpinBox(); self._draft_p_split.setRange(0.0, 1.0); self._draft_p_split.setSingleStep(0.05); self._draft_p_split.setValue(0.1)
         self._draft_p_min = QDoubleSpinBox(); self._draft_p_min.setRange(0.0, 1.0); self._draft_p_min.setSingleStep(0.05); self._draft_p_min.setValue(0.0)
+        self._draft_model = QLineEdit(); self._draft_model.setPlaceholderText("草稿模型 GGUF 路径")
         form.addRow("类型 (--spec-type)", self._spec_type)
         form.addRow("最大草稿数 (--spec-draft-n-max)", self._draft_n_max)
         form.addRow("最小草稿数 (--spec-draft-n-min)", self._draft_n_min)
         form.addRow("分割概率 (--spec-draft-p-split)", self._draft_p_split)
         form.addRow("最小概率 (--spec-draft-p-min)", self._draft_p_min)
+        form.addRow("草稿模型 (-md)", self._draft_model)
         self._init_done()
 
     def _collect(self):
@@ -293,4 +299,5 @@ class SpeculativeParams(_CollapsibleGroup):
             "spec_draft_n_min": self._draft_n_min.value(),
             "spec_draft_p_split": self._draft_p_split.value(),
             "spec_draft_p_min": self._draft_p_min.value(),
+            "spec_draft_model": self._draft_model.text() or None,
         }

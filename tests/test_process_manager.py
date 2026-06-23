@@ -184,3 +184,85 @@ def test_高级参数_安全():
     cmd = sup._build_command(params)
     assert "--api-key" in cmd
     assert cmd[cmd.index("--api-key") + 1] == "my-secret-key"
+
+
+def test_高级参数_n_cpu_moe():
+    """--n-cpu-moe 参数应正确拼接到命令行"""
+    bus = EventBus()
+    sup = ProcessSupervisor(bus)
+
+    params = {
+        "model_path": "test.gguf",
+        "server_path": "llama-server",
+        "port": 8080,
+        "host": "127.0.0.1",
+        "context_size": 4096,
+        "n_gpu_layers": 0,
+        "parallel": 1,
+        "n_cpu_moe": 4,
+    }
+
+    cmd = sup._build_command(params)
+    assert "--n-cpu-moe" in cmd
+    assert cmd[cmd.index("--n-cpu-moe") + 1] == "4"
+
+
+def test_高级参数_n_cpu_moe默认值不拼接():
+    """--n-cpu-moe 默认值 -1 时不拼接"""
+    bus = EventBus()
+    sup = ProcessSupervisor(bus)
+
+    params = {
+        "model_path": "test.gguf",
+        "server_path": "llama-server",
+        "port": 8080,
+        "host": "127.0.0.1",
+        "context_size": 4096,
+        "n_gpu_layers": 0,
+        "parallel": 1,
+        "n_cpu_moe": -1,
+    }
+
+    cmd = sup._build_command(params)
+    assert "--n-cpu-moe" not in cmd
+
+
+def test_高级参数_spec_draft_model():
+    """-md 参数应正确拼接到命令行"""
+    bus = EventBus()
+    sup = ProcessSupervisor(bus)
+
+    params = {
+        "model_path": "test.gguf",
+        "server_path": "llama-server",
+        "port": 8080,
+        "host": "127.0.0.1",
+        "context_size": 4096,
+        "n_gpu_layers": 0,
+        "parallel": 1,
+        "spec_draft_model": "draft.gguf",
+    }
+
+    cmd = sup._build_command(params)
+    assert "-md" in cmd
+    assert cmd[cmd.index("-md") + 1] == "draft.gguf"
+
+
+def test_高级参数_spec_draft_model为空不拼接():
+    """spec_draft_model 为空时不拼接"""
+    bus = EventBus()
+    sup = ProcessSupervisor(bus)
+
+    params = {
+        "model_path": "test.gguf",
+        "server_path": "llama-server",
+        "port": 8080,
+        "host": "127.0.0.1",
+        "context_size": 4096,
+        "n_gpu_layers": 0,
+        "parallel": 1,
+        "spec_draft_model": None,
+    }
+
+    cmd = sup._build_command(params)
+    assert "-md" not in cmd
