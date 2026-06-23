@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QSpinBox, QDoubleSpinBox,
     QComboBox, QCheckBox, QLineEdit, QWidget, QVBoxLayout, QPushButton,
-    QLayout
+    QLayout, QFileDialog, QHBoxLayout
 )
 
 def _safe_int(v, default=0):
@@ -116,12 +116,12 @@ class InferenceParams(_CollapsibleGroup):
         form.addRow("逻辑批大小 (-b)", self._batch)
         form.addRow("物理批大小 (-ub)", self._ubatch)
         form.addRow("HTTP 线程数", self._threads_http)
-        form.addRow("CPU MoE 层数 (--n-cpu-moe)", self._n_cpu_moe)
+        form.addRow("CPU MoE 层数", self._n_cpu_moe)
         form.addRow("", self._no_warmup)
         form.addRow("", self._jinja)
         form.addRow("", self._context_shift)
         form.addRow("保护前缀 (--keep)", self._keep)
-        form.addRow("轮询级别 (--poll)", self._poll)
+        form.addRow("轮询级别", self._poll)
         self._init_done()
 
     def _collect(self):
@@ -283,14 +283,28 @@ class SpeculativeParams(_CollapsibleGroup):
         self._draft_n_min = QSpinBox(); self._draft_n_min.setRange(0, 64); self._draft_n_min.setValue(0)
         self._draft_p_split = QDoubleSpinBox(); self._draft_p_split.setRange(0.0, 1.0); self._draft_p_split.setSingleStep(0.05); self._draft_p_split.setValue(0.1)
         self._draft_p_min = QDoubleSpinBox(); self._draft_p_min.setRange(0.0, 1.0); self._draft_p_min.setSingleStep(0.05); self._draft_p_min.setValue(0.0)
-        self._draft_model = QLineEdit(); self._draft_model.setPlaceholderText("草稿模型 GGUF 路径")
-        form.addRow("类型 (--spec-type)", self._spec_type)
-        form.addRow("最大草稿数 (--spec-draft-n-max)", self._draft_n_max)
-        form.addRow("最小草稿数 (--spec-draft-n-min)", self._draft_n_min)
-        form.addRow("分割概率 (--spec-draft-p-split)", self._draft_p_split)
-        form.addRow("最小概率 (--spec-draft-p-min)", self._draft_p_min)
-        form.addRow("草稿模型 (-md)", self._draft_model)
+        # 草稿模型文件选择
+        draft_model_row = QWidget()
+        draft_model_layout = QHBoxLayout(draft_model_row)
+        draft_model_layout.setContentsMargins(0, 0, 0, 0)
+        self._draft_model = QLineEdit(); self._draft_model.setPlaceholderText("草稿模型路径")
+        self._browse_btn = QPushButton("...")
+        self._browse_btn.setFixedWidth(32)
+        self._browse_btn.clicked.connect(self._browse_draft_model)
+        draft_model_layout.addWidget(self._draft_model)
+        draft_model_layout.addWidget(self._browse_btn)
+        form.addRow("投机类型", self._spec_type)
+        form.addRow("最大草稿数", self._draft_n_max)
+        form.addRow("最小草稿数", self._draft_n_min)
+        form.addRow("分割概率", self._draft_p_split)
+        form.addRow("最小概率", self._draft_p_min)
+        form.addRow("草稿模型 (-md)", draft_model_row)
         self._init_done()
+
+    def _browse_draft_model(self):
+        path, _ = QFileDialog.getOpenFileName(self, "选择草稿模型", "", "GGUF Files (*.gguf)")
+        if path:
+            self._draft_model.setText(path)
 
     def _collect(self):
         return {
