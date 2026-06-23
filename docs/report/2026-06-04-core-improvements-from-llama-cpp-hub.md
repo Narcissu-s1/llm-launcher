@@ -260,3 +260,52 @@ tests/test_config_preset.py: 10 passed (含本轮 3 个新增)
 3. `test: 补 _apply_update_info 单元测试`
 
 注:第 2、3 个提交拆为两步,因第 1 个测试发现 bug 后必须先修才能继续。
+
+## 十一、新增 MoE 调试和草稿模型参数(2026-06-23)
+
+用户要求完成 todo.md 中的两个待办项，为 MoE 模型调试和投机解码提供支持。
+
+### 11.1 改动
+
+**`ui/widgets/param_groups.py`** — 新增两个参数 UI:
+
+- `InferenceParams` 新增 `--n-cpu-moe N` 参数：
+  - SpinBox 控件，范围 -1~256，默认 -1（不拼接命令行）
+  - 用途：将前 N 层的 MoE 权重保留在 CPU，灵活调试 MoE 模型的显存/速度平衡
+  - 比 `--cpu-moe`（全量 CPU）更细粒度
+
+- `SpeculativeParams` 新增 `-md/--spec-draft-model FNAME` 参数：
+  - QLineEdit 控件，路径输入框
+  - 用途：指定草稿模型 GGUF 文件路径，用于 draft 类型投机解码
+
+**`core/process_manager.py`** — 命令行拼接:
+
+- `_build_command` 新增 `--n-cpu-moe` 处理：`n_cpu_moe != -1` 时拼接
+- `_build_command` 新增 `-md` 处理：`spec_draft_model` 非空时拼接，路径经 `_safe_path` 转正斜杠
+
+### 11.2 测试
+
+**`tests/test_process_manager.py`** — 新增 4 个测试用例:
+
+| 测试 | 验证点 |
+|------|--------|
+| `test_高级参数_n_cpu_moe` | `n_cpu_moe=4` → `--n-cpu-moe 4` |
+| `test_高级参数_n_cpu_moe默认值不拼接` | `n_cpu_moe=-1` → 命令行无 `--n-cpu-moe` |
+| `test_高级参数_spec_draft_model` | `spec_draft_model="draft.gguf"` → `-md draft.gguf` |
+| `test_高级参数_spec_draft_model为空不拼接` | `spec_draft_model=None` → 命令行无 `-md` |
+
+### 11.3 验证
+
+```
+============================= 80 passed in 3.44s ==============================
+```
+
+### 11.4 文档同步
+
+- `docs/llama-server-参数指南.html` 已有这两个参数的详细说明（搜索 `--n-cpu-moe` 和 `--spec-draft-model`）
+- `todo.md` 已标记完成
+- `phase2_progress.md` 已更新迭代记录
+
+### 11.5 提交
+
+`be3abd7` feat: 新增 --n-cpu-moe 和 --spec-draft-model 参数支持
