@@ -275,6 +275,10 @@ class ProcessSupervisor:
             cmd.extend(["--min-p", str(params["min_p"])])
         if abs(params.get("repeat_penalty", 1.10) - 1.10) > 0.001:
             cmd.extend(["--repeat-penalty", str(params["repeat_penalty"])])
+        if abs(params.get("presence_penalty", 0.0)) > 0.001:
+            cmd.extend(["--presence-penalty", str(params["presence_penalty"])])
+        if abs(params.get("frequency_penalty", 0.0)) > 0.001:
+            cmd.extend(["--frequency-penalty", str(params["frequency_penalty"])])
         if params.get("seed", -1) != -1:
             cmd.extend(["-s", str(params["seed"])])
         if params.get("n_predict", -1) != -1:

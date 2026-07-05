@@ -38,6 +38,9 @@ htmlcov/
 skills-lock.json
 gguf_info.py
 
+# 文档输出
+docs/
+
 # 构建脚本
 C编译.bat
 

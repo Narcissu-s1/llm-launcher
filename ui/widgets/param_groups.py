@@ -158,6 +158,8 @@ class SamplingParams(_CollapsibleGroup):
         self._top_p = QDoubleSpinBox(); self._top_p.setRange(0.0, 1.0); self._top_p.setValue(0.90); self._top_p.setSingleStep(0.05)
         self._min_p = QDoubleSpinBox(); self._min_p.setRange(0.0, 1.0); self._min_p.setValue(0.05); self._min_p.setSingleStep(0.01)
         self._repeat_penalty = QDoubleSpinBox(); self._repeat_penalty.setRange(0.5, 2.0); self._repeat_penalty.setValue(1.1); self._repeat_penalty.setSingleStep(0.05)
+        self._presence_penalty = QDoubleSpinBox(); self._presence_penalty.setRange(0.0, 2.0); self._presence_penalty.setValue(0.0); self._presence_penalty.setSingleStep(0.05)
+        self._frequency_penalty = QDoubleSpinBox(); self._frequency_penalty.setRange(0.0, 2.0); self._frequency_penalty.setValue(0.0); self._frequency_penalty.setSingleStep(0.05)
         self._seed = QSpinBox(); self._seed.setRange(-1, 2**31-1); self._seed.setValue(-1)
         self._n_predict = QSpinBox(); self._n_predict.setRange(-1, 100000); self._n_predict.setValue(-1)
         self._ignore_eos = QCheckBox("忽略 EOS")
@@ -166,6 +168,8 @@ class SamplingParams(_CollapsibleGroup):
         form.addRow("Top-P", self._top_p)
         form.addRow("Min-P", self._min_p)
         form.addRow("重复惩罚", self._repeat_penalty)
+        form.addRow("存在惩罚", self._presence_penalty)
+        form.addRow("频率惩罚", self._frequency_penalty)
         form.addRow("随机种子", self._seed)
         form.addRow("最大生成长度", self._n_predict)
         form.addRow("", self._ignore_eos)
@@ -178,17 +182,22 @@ class SamplingParams(_CollapsibleGroup):
             "top_p": self._top_p.value(),
             "min_p": self._min_p.value(),
             "repeat_penalty": self._repeat_penalty.value(),
+            "presence_penalty": self._presence_penalty.value(),
+            "frequency_penalty": self._frequency_penalty.value(),
             "seed": self._seed.value(),
             "n_predict": self._n_predict.value(),
             "ignore_eos": self._ignore_eos.isChecked(),
         }
 
+    def restore_params(self, d: dict):
         super().restore_params(d)
         if "temperature" in d: self._temp.setValue(d["temperature"])
         if "top_k" in d: self._top_k.setValue(d["top_k"])
         if "top_p" in d: self._top_p.setValue(d["top_p"])
         if "min_p" in d: self._min_p.setValue(d["min_p"])
         if "repeat_penalty" in d: self._repeat_penalty.setValue(d["repeat_penalty"])
+        if "presence_penalty" in d: self._presence_penalty.setValue(d["presence_penalty"])
+        if "frequency_penalty" in d: self._frequency_penalty.setValue(d["frequency_penalty"])
         if "seed" in d: self._seed.setValue(d["seed"])
         if "n_predict" in d: self._n_predict.setValue(d["n_predict"])
         if "ignore_eos" in d: self._ignore_eos.setChecked(d["ignore_eos"])

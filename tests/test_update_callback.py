@@ -8,11 +8,10 @@
 
 import os
 import sys
-import tempfile
-from unittest.mock import MagicMock, patch
 
 import pytest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QApplication, QLabel
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -22,20 +21,29 @@ def qt_app():
     return QApplication.instance() or QApplication(sys.argv)
 
 
-@pytest.fixture
-def launcher_app(qt_app, tmp_path):
-    """构造 LlamaLauncherApp,避免真实副作用"""
-    config_path = str(tmp_path / "config.yaml")
-    with patch("ui.app.TrayIcon"), \
-         patch("ui.app.check_update_async"):  # 阻止真实网络
+class UpdateTarget(QObject):
+    """只保留更新提示所需的最小 Qt 对象"""
+
+    update_info_received = Signal(object)
+
+    def __init__(self):
+        super().__init__()
         from ui.app import LlamaLauncherApp
-        app = LlamaLauncherApp()
+
+        self._update_label = QLabel()
+        self._update_label.setOpenExternalLinks(True)
+        self._apply_update_info = LlamaLauncherApp._apply_update_info.__get__(self)
+        self.update_info_received.connect(self._apply_update_info)
+
+
+@pytest.fixture
+def launcher_app(qt_app):
+    """构造最小对象,避免完整主窗口带来的 Qt 清理副作用"""
+    app = UpdateTarget()
     yield app
-    # teardown:ProcessSupervisor 可能起子进程,确保 stop
-    try:
-        app._supervisor.stop()
-    except Exception:
-        pass
+    app._update_label.deleteLater()
+    app.deleteLater()
+    qt_app.processEvents()
 
 
 def test_无更新时label_text保持空(launcher_app):

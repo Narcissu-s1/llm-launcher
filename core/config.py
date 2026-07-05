@@ -48,6 +48,8 @@ DEFAULT_CONFIG = {
         "top_p": 0.90,           # Top-P 采样
         "min_p": 0.05,           # Min-P 采样
         "repeat_penalty": 1.10,  # 重复惩罚
+        "presence_penalty": 0.0, # 存在惩罚（0=禁用）
+        "frequency_penalty": 0.0,# 频率惩罚（0=禁用）
         "seed": -1,              # 随机种子（-1=随机）
         "n_predict": -1,         # 最大生成 token 数（-1=无限）
         "ignore_eos": False,     # 忽略结束符持续生成

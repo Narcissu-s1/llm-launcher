@@ -133,6 +133,8 @@ def test_高级参数_采样():
         "parallel": 1,
         "temp": 0.7,
         "top_k": 20,
+        "presence_penalty": 0.3,
+        "frequency_penalty": 0.4,
     }
 
     cmd = sup._build_command(params)
@@ -140,6 +142,10 @@ def test_高级参数_采样():
     assert cmd[cmd.index("--temp") + 1] == "0.7"
     assert "--top-k" in cmd
     assert cmd[cmd.index("--top-k") + 1] == "20"
+    assert "--presence-penalty" in cmd
+    assert cmd[cmd.index("--presence-penalty") + 1] == "0.3"
+    assert "--frequency-penalty" in cmd
+    assert cmd[cmd.index("--frequency-penalty") + 1] == "0.4"
 
 
 def test_高级参数_默认值不拼接():
@@ -162,6 +168,8 @@ def test_高级参数_默认值不拼接():
     assert "-ctk" not in cmd
     assert "-fa" not in cmd
     assert "--temp" not in cmd
+    assert "--presence-penalty" not in cmd
+    assert "--frequency-penalty" not in cmd
     assert "--api-key" not in cmd
 
 

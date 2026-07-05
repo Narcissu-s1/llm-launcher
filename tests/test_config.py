@@ -137,6 +137,8 @@ def test_新增参数默认值():
     assert server["top_p"] == 0.9
     assert server["min_p"] == 0.05
     assert server["repeat_penalty"] == 1.1
+    assert server["presence_penalty"] == 0.0
+    assert server["frequency_penalty"] == 0.0
     assert server["seed"] == -1
     assert server["n_predict"] == -1
 
