@@ -215,9 +215,11 @@ class ProcessSupervisor:
             "--host", str(params.get("host", "127.0.0.1")),
             "--port", str(params.get("port", 8080)),
             "-c", str(params.get("context_size", 4096)),
-            "--n-gpu-layers", str(params.get("n_gpu_layers", 0)),
             "-np", str(params.get("parallel", 1)),
         ])
+        n_gpu_layers = params.get("n_gpu_layers", "auto")
+        if n_gpu_layers not in (None, "", "auto"):
+            cmd.extend(["--n-gpu-layers", str(n_gpu_layers)])
 
         # Phase 2 - KV Cache 与显存
         if params.get("cache_type_k", "f16") != "f16":
@@ -251,7 +253,7 @@ class ProcessSupervisor:
             cmd.extend(["-ub", str(params["ubatch_size"])])
         if params.get("threads_http", -1) != -1:
             cmd.extend(["--threads-http", str(params["threads_http"])])
-        if params.get("n_cpu_moe", -1) != -1:
+        if params.get("n_cpu_moe", 0) != 0:
             cmd.extend(["--n-cpu-moe", str(params["n_cpu_moe"])])
         if params.get("no_warmup", False):
             cmd.append("--no-warmup")

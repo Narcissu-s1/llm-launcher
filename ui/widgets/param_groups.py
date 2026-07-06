@@ -104,7 +104,7 @@ class InferenceParams(_CollapsibleGroup):
         self._batch = QSpinBox(); self._batch.setRange(1, 65536); self._batch.setValue(2048)
         self._ubatch = QSpinBox(); self._ubatch.setRange(1, 65536); self._ubatch.setValue(512)
         self._threads_http = QSpinBox(); self._threads_http.setRange(-1, 256); self._threads_http.setValue(-1)
-        self._n_cpu_moe = QSpinBox(); self._n_cpu_moe.setRange(-1, 256); self._n_cpu_moe.setValue(-1)
+        self._n_cpu_moe = QSpinBox(); self._n_cpu_moe.setRange(0, 256); self._n_cpu_moe.setValue(0)
         self._no_warmup = QCheckBox("跳过预热")
         self._jinja = QCheckBox("启用 Jinja 模板 (--jinja)")
         self._jinja.setChecked(True)
@@ -131,7 +131,7 @@ class InferenceParams(_CollapsibleGroup):
             "batch_size": self._batch.value() if self._batch.value() != 2048 else None,
             "ubatch_size": self._ubatch.value() if self._ubatch.value() != 512 else None,
             "threads_http": self._threads_http.value() if self._threads_http.value() != -1 else None,
-            "n_cpu_moe": self._n_cpu_moe.value() if self._n_cpu_moe.value() != -1 else None,
+            "n_cpu_moe": self._n_cpu_moe.value() if self._n_cpu_moe.value() != 0 else None,
             "no_warmup": self._no_warmup.isChecked(),
             "jinja": self._jinja.isChecked(),
             "context_shift": self._context_shift.isChecked(),
@@ -147,6 +147,15 @@ class InferenceParams(_CollapsibleGroup):
         if "threads_http" in d and d["threads_http"]: self._threads_http.setValue(d["threads_http"])
         if "n_cpu_moe" in d and d["n_cpu_moe"]: self._n_cpu_moe.setValue(d["n_cpu_moe"])
         if "no_warmup" in d: self._no_warmup.setChecked(d["no_warmup"])
+
+    def set_model_block_count(self, block_count: int):
+        """按模型层数限制 --n-cpu-moe 上限。"""
+        if block_count <= 0:
+            return
+        current = self._n_cpu_moe.value()
+        self._n_cpu_moe.setRange(0, block_count)
+        self._n_cpu_moe.setToolTip(f"该模型共 {block_count} 层，0 = 不额外保留 MoE 层在 CPU")
+        self._n_cpu_moe.setValue(min(current, block_count))
 
 
 class SamplingParams(_CollapsibleGroup):

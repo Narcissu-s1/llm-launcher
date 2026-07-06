@@ -12,12 +12,14 @@ from core.config import ConfigStore
 
 def test_文件不存在时返回默认值():
     """配置文件不存在时，load 应返回默认配置字典"""
-    store = ConfigStore("/nonexistent/path/config.yaml")
-    config = store.load()
-    assert config["model"]["last_path"] == ""
-    assert config["model"]["mmproj_path"] == ""
-    assert config["server"]["port"] == 8080
-    assert config["server"]["host"] == "127.0.0.1"
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        store = ConfigStore(os.path.join(tmp_dir, "config.yaml"))
+        config = store.load()
+        assert config["model"]["last_path"] == ""
+        assert config["model"]["mmproj_path"] == ""
+        assert config["server"]["port"] == 8080
+        assert config["server"]["host"] == "127.0.0.1"
+        assert config["server"]["n_gpu_layers"] == "auto"
 
 
 def test_读写正常():
@@ -130,6 +132,7 @@ def test_新增参数默认值():
     assert server["ubatch_size"] == 512
     assert server["threads_http"] == -1
     assert server["no_warmup"] is False
+    assert server["n_gpu_layers"] == "auto"
 
     # 采样参数
     assert server["temp"] == 0.6

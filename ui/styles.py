@@ -3,6 +3,15 @@
 所有 QSS 定义集中于此，便于统一管理和维护
 """
 
+from pathlib import Path
+
+
+_ASSET_DIR = Path(__file__).resolve().parents[1] / "assets"
+_SPINBOX_UP_ARROW = (_ASSET_DIR / "spinbox-up.svg").as_posix()
+_SPINBOX_DOWN_ARROW = (_ASSET_DIR / "spinbox-down.svg").as_posix()
+_SPINBOX_UP_ARROW_HOVER = (_ASSET_DIR / "spinbox-up-hover.svg").as_posix()
+_SPINBOX_DOWN_ARROW_HOVER = (_ASSET_DIR / "spinbox-down-hover.svg").as_posix()
+
 # ============================================================================
 # 配色方案
 # ============================================================================
@@ -147,6 +156,46 @@ QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabl
     background: {COLORS["bg_main"]};
     border-color: {COLORS["border"]};
     color: {COLORS["text_muted"]};
+}}
+QSpinBox, QDoubleSpinBox {{
+    padding-right: 26px;
+}}
+QSpinBox::up-button, QDoubleSpinBox::up-button {{
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 22px;
+    border-left: 1px solid {COLORS["border"]};
+    border-bottom: 1px solid {COLORS["border"]};
+    border-top-right-radius: 6px;
+    background: {COLORS["bg_card"]};
+}}
+QSpinBox::down-button, QDoubleSpinBox::down-button {{
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 22px;
+    border-left: 1px solid {COLORS["border"]};
+    border-bottom-right-radius: 6px;
+    background: {COLORS["bg_card"]};
+}}
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
+    width: 10px;
+    height: 10px;
+    image: url({_SPINBOX_UP_ARROW});
+}}
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
+    width: 10px;
+    height: 10px;
+    image: url({_SPINBOX_DOWN_ARROW});
+}}
+QSpinBox::up-button:hover, QSpinBox::down-button:hover,
+QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {{
+    background: {COLORS["primary_bg"]};
+}}
+QSpinBox::up-button:hover::up-arrow, QDoubleSpinBox::up-button:hover::up-arrow {{
+    image: url({_SPINBOX_UP_ARROW_HOVER});
+}}
+QSpinBox::down-button:hover::down-arrow, QDoubleSpinBox::down-button:hover::down-arrow {{
+    image: url({_SPINBOX_DOWN_ARROW_HOVER});
 }}
 
 /* === 复选框禁用状态 === */

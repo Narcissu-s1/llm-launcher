@@ -116,7 +116,7 @@ class ControlPanel(QWidget):
         self._router_ctx_extra = ["65536", "131072", "262144"]
         self._ngl = QSpinBox()
         self._ngl.setRange(-1, 9999)
-        self._ngl.setSpecialValueText("全部（-1）")
+        self._ngl.setSpecialValueText("auto")
         self._ngl.setValue(-1)
         self._np = QComboBox()
         self._np.addItems(["1", "2", "4", "8"])
@@ -221,6 +221,7 @@ class ControlPanel(QWidget):
         if path:
             self._model_path.setText(path)
             self._config.set("model.last_path", path)
+            self._update_ctx_for_model(path)
 
     def _browse_mmproj(self):
         path, _ = QFileDialog.getOpenFileName(self, "选择 mmproj 文件", "", "GGUF Files (*.gguf)")
@@ -274,7 +275,7 @@ class ControlPanel(QWidget):
             "mmproj_path": self._mmproj_path.text(),
             "port": self._port.value(),
             "context_size": int(self._ctx.currentText()),
-            "n_gpu_layers": self._ngl.value(),
+            "n_gpu_layers": "auto" if self._ngl.value() == -1 else self._ngl.value(),
             "parallel": int(self._np.currentText()),
             "host": self._host.currentData(),
             "router_mode": self._router_mode.isChecked(),
@@ -320,12 +321,15 @@ class ControlPanel(QWidget):
             self._ctx.setCurrentIndex(idx)
 
         ngl = self._config.get("server.n_gpu_layers")
-        self._ngl.setValue(ngl if ngl is not None else -1)
+        self._ngl.setValue(-1 if ngl in (None, "auto") else int(ngl))
 
         np_val = str(self._config.get("server.parallel") or 1)
         idx2 = self._np.findText(np_val)
         if idx2 >= 0:
             self._np.setCurrentIndex(idx2)
+
+        if self._model_path.text():
+            self._update_ctx_for_model(self._model_path.text())
 
     def _start(self):
         params = self.collect_params()
@@ -433,7 +437,8 @@ class ControlPanel(QWidget):
             if idx >= 0:
                 self._ctx.setCurrentIndex(idx)
         if "n_gpu_layers" in preset:
-            self._ngl.setValue(preset["n_gpu_layers"])
+            ngl = preset["n_gpu_layers"]
+            self._ngl.setValue(-1 if ngl == "auto" else int(ngl))
         if "parallel" in preset:
             idx2 = self._np.findText(str(preset["parallel"]))
             if idx2 >= 0:
@@ -567,14 +572,12 @@ class ControlPanel(QWidget):
                 self._ctx.setCurrentIndex(idx if idx >= 0 else self._ctx.count() - 1)
                 self._ctx.blockSignals(False)
 
-        # 更新 GPU 层数范围（-1 ~ block_count）
+        # 更新 GPU 层数范围（auto ~ block_count）
         block_count = info.block_count
         if block_count > 0:
             current_ngl = self._ngl.value()
             self._ngl.setRange(-1, block_count)
-            self._ngl.setToolTip(f"该模型共 {block_count} 层，-1 = 全部卸载到 GPU")
+            self._ngl.setToolTip(f"该模型共 {block_count} 层，auto = 由 llama-server 决定")
             # 若当前值超出新上限则夹紧
-            self._ngl.setValue(min(current_ngl, block_count))       # 尽量恢复原来的选项，否则选最大
-        idx = self._ctx.findText(current)
-        self._ctx.setCurrentIndex(idx if idx >= 0 else self._ctx.count() - 1)
-        self._ctx.blockSignals(False)
+            self._ngl.setValue(min(current_ngl, block_count))
+            self._inf_params.set_model_block_count(block_count)

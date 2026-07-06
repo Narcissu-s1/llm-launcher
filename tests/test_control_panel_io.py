@@ -186,3 +186,101 @@ def test_save_model_preset_for_path_取消覆盖(control):
 
     assert mock_info.call_count == 0
     assert control._config.get_model_preset("qwen-7b") == {"old": True}
+
+
+def test_gpu层数默认auto且不超过模型层数(control):
+    """GPU 层数默认 auto，选择模型后最大值应来自 GGUF block_count"""
+    from core.model_library import ModelInfo
+
+    info = ModelInfo(
+        path="D:/models/test.gguf",
+        name="test",
+        file_size=1,
+        context_length=0,
+        block_count=48,
+    )
+
+    with patch("core.model_library._parse_gguf", return_value=info):
+        control._update_ctx_for_model("D:/models/test.gguf")
+
+    assert control._ngl.minimum() == -1
+    assert control._ngl.maximum() == 48
+    assert control._ngl.value() == -1
+    assert control.collect_params()["n_gpu_layers"] == "auto"
+
+    control._ngl.setValue(99)
+    assert control._ngl.value() == 48
+    assert control.collect_params()["n_gpu_layers"] == 48
+
+
+def test_cpu_moe层数范围按模型层数限制(control):
+    """CPU MoE 层数范围应按 GGUF block_count 限制为 0..模型层数"""
+    from core.model_library import ModelInfo
+
+    info = ModelInfo(
+        path="D:/models/moe.gguf",
+        name="moe",
+        file_size=1,
+        context_length=0,
+        block_count=64,
+    )
+
+    with patch("core.model_library._parse_gguf", return_value=info):
+        control._update_ctx_for_model("D:/models/moe.gguf")
+
+    n_cpu_moe = control._inf_params._n_cpu_moe
+    assert n_cpu_moe.minimum() == 0
+    assert n_cpu_moe.maximum() == 64
+    assert n_cpu_moe.value() == 0
+
+    control._inf_params.setChecked(True)
+    n_cpu_moe.setValue(99)
+    assert n_cpu_moe.value() == 64
+    assert control.collect_params()["n_cpu_moe"] == 64
+
+
+def test_恢复已有模型路径时更新参数上限(qt_app, config_path):
+    """启动恢复已有模型路径时也应按 GGUF metadata 更新层数上限"""
+    from core.config import ConfigStore
+    from core.model_library import ModelInfo
+    from ui.control_panel import ControlPanel
+
+    config = ConfigStore(config_path)
+    data = config.load()
+    data["model"]["last_path"] = "D:/models/restored.gguf"
+    config.save(data)
+
+    info = ModelInfo(
+        path="D:/models/restored.gguf",
+        name="restored",
+        file_size=1,
+        context_length=0,
+        block_count=40,
+    )
+
+    with patch("core.model_library._parse_gguf", return_value=info):
+        control = ControlPanel(config, MagicMock())
+
+    assert control._ngl.maximum() == 40
+    assert control._inf_params._n_cpu_moe.maximum() == 40
+
+
+def test_浏览选择模型后更新参数上限(control):
+    """通过浏览按钮选择模型后应立即按 GGUF metadata 更新层数上限"""
+    from core.model_library import ModelInfo
+
+    info = ModelInfo(
+        path="D:/models/browsed.gguf",
+        name="browsed",
+        file_size=1,
+        context_length=0,
+        block_count=72,
+    )
+
+    with patch("ui.control_panel.QFileDialog.getOpenFileName",
+               return_value=("D:/models/browsed.gguf", "GGUF Files (*.gguf)")), \
+         patch("core.model_library._parse_gguf", return_value=info):
+        control._browse_model()
+
+    assert control._ngl.maximum() == 72
+    assert control._inf_params._n_cpu_moe.maximum() == 72

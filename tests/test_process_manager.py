@@ -173,6 +173,45 @@ def test_高级参数_默认值不拼接():
     assert "--api-key" not in cmd
 
 
+def test_n_gpu_layers_auto默认值不拼接():
+    """--n-gpu-layers 默认 auto 时交给 llama-server 决定"""
+    bus = EventBus()
+    sup = ProcessSupervisor(bus)
+
+    params = {
+        "model_path": "test.gguf",
+        "server_path": "llama-server",
+        "port": 8080,
+        "host": "127.0.0.1",
+        "context_size": 4096,
+        "n_gpu_layers": "auto",
+        "parallel": 1,
+    }
+
+    cmd = sup._build_command(params)
+    assert "--n-gpu-layers" not in cmd
+
+
+def test_n_gpu_layers数字值才拼接():
+    """--n-gpu-layers 数字值应原样拼接"""
+    bus = EventBus()
+    sup = ProcessSupervisor(bus)
+
+    params = {
+        "model_path": "test.gguf",
+        "server_path": "llama-server",
+        "port": 8080,
+        "host": "127.0.0.1",
+        "context_size": 4096,
+        "n_gpu_layers": 20,
+        "parallel": 1,
+    }
+
+    cmd = sup._build_command(params)
+    assert "--n-gpu-layers" in cmd
+    assert cmd[cmd.index("--n-gpu-layers") + 1] == "20"
+
+
 def test_高级参数_安全():
     """API Key 非空时应拼接"""
     bus = EventBus()
@@ -216,7 +255,7 @@ def test_高级参数_n_cpu_moe():
 
 
 def test_高级参数_n_cpu_moe默认值不拼接():
-    """--n-cpu-moe 默认值 -1 时不拼接"""
+    """--n-cpu-moe 默认值 0 时不拼接"""
     bus = EventBus()
     sup = ProcessSupervisor(bus)
 
@@ -228,7 +267,7 @@ def test_高级参数_n_cpu_moe默认值不拼接():
         "context_size": 4096,
         "n_gpu_layers": 0,
         "parallel": 1,
-        "n_cpu_moe": -1,
+        "n_cpu_moe": 0,
     }
 
     cmd = sup._build_command(params)
