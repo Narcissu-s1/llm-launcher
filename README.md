@@ -11,9 +11,21 @@
     <img src="https://img.shields.io/badge/PySide6-6.5%2B-41CD52?logo=qt" alt="PySide6" />
     <img src="https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D4?logo=windows" alt="Windows" />
     <img src="https://img.shields.io/github/license/Narcissu-s1/llm-launcher" alt="MIT License" />
+    <img src="https://img.shields.io/github/v/release/Narcissu-s1/llm-launcher?label=Release" alt="GitHub Release" />
     <img src="https://img.shields.io/badge/llama.cpp-%E2%89%A5b4467-FF6F00" alt="llama.cpp" />
   </p>
 </div>
+
+---
+
+## v1.2.0 更新亮点
+
+- **配置更可靠** — 配置文件采用原子写入，损坏的 YAML 会自动备份后恢复默认配置
+- **预设能力完善** — 支持 JSON 导入/导出，并可为不同模型保存和自动应用专属预设
+- **自动检查更新** — 启动后在后台检查 GitHub Releases，有新版本时提供跳转链接，不阻塞界面
+- **高级推理参数** — 新增 `--n-cpu-moe` 和 `--spec-draft-model`，支持 MoE CPU 层调节与投机解码草稿模型
+- **参数界面优化** — 修复高级参数区域截断和 SpinBox 箭头交互，GPU/MoE 层数上限可按模型元数据调整
+- **运行稳定性** — EventBus 改为基于队列的异步分发，并补齐线程安全、更新回调和参数链路测试
 
 ---
 
@@ -49,8 +61,8 @@
 | 🖥️ **模型选择**<br/>文件浏览器选择 .gguf，自动检测 mmproj | 🔄 **路由模式**<br/>多模型路由启动，支持 256K 上下文 | ⚙️ **参数配置**<br/>基础参数 + 30+ 高级参数分组折叠 |
 | 🚀 **启停管理**<br/>一键启动/停止，状态实时反馈 | 📊 **进程监控**<br/>GPU 占用、内存、请求数实时显示 | 📚 **模型库**<br/>扫描目录，展示参数量/量化/架构 |
 | ⬇️ **搜索下载**<br/>HF / HF 镜像 / ModelScope 多源 | 💬 **内置聊天**<br/>直接测试 API，支持图片多模态 | 🏎️ **性能测试**<br/>llama-bench 基准测试，多模型对比 |
-| 💾 **预设管理**<br/>保存/载入/导入/导出参数预设 | 🪟 **系统托盘**<br/>最小化到托盘，右键快速操作 | 🔛 **开机自启**<br/>一键设置 Windows 开机启动 |
-| 🌐 **WUI 工具**<br/>启用 llama-server Web 工具界面 | | |
+| 💾 **预设管理**<br/>通用/模型专属预设，支持 JSON 导入导出 | 🪟 **系统托盘**<br/>最小化到托盘，右键快速操作 | 🔛 **开机自启**<br/>一键设置 Windows 开机启动 |
+| 🌐 **WUI 工具**<br/>启用 llama-server Web 工具界面 | 🆕 **在线更新**<br/>后台检查 GitHub Releases | 🧩 **MoE / 投机解码**<br/>CPU MoE 层与草稿模型配置 |
 
 </div>
 
@@ -136,7 +148,8 @@ python main.py
 |------|----------|
 | 🧠 KV Cache 与显存 | KV 量化、统一 KV 池、Flash Attention、Prompt Cache 等 |
 | ⚡ 推理速度 | 线程数、批大小、HTTP 线程、预热控制 |
-| 🎯 采样参数 | 温度、Top-K/P、Min-P、重复惩罚、随机种子 |
+| 🧩 MoE 与投机解码 | CPU MoE 层数、草稿模型文件 |
+| 🎯 采样参数 | 温度、Top-K/P、Min-P、重复/存在/频率惩罚、随机种子 |
 | 🤔 思考/推理模式 | 思考模式开关、格式、预算（用于 DeepSeek-R1 等模型） |
 | 🖼️ 多模态 | 视觉编码器 GPU 卸载、图像 token 范围 |
 | 🔒 安全与访问控制 | API Key、超时、监控端点 |
@@ -150,6 +163,15 @@ python main.py
 - **保存** — 调整好参数后点击「保存」→ 输入预设名称
 - **载入** — 从下拉列表选择预设 → 点击「载入」
 - **导入/导出** — JSON 格式，方便在不同机器间迁移配置
+- **模型专属预设** — 在模型库中为当前模型保存参数，切换到该模型时自动应用
+
+配置文件通过临时文件和原子替换写入；若检测到损坏的 YAML，程序会保留带时间戳的 `.broken-*` 备份并恢复默认配置。
+
+---
+
+## 🆕 在线更新
+
+程序启动后会在后台检查本仓库的 GitHub Releases。发现新版本时，状态栏会显示版本号和下载链接；检查失败不会影响启动，程序也不会自动下载或覆盖现有文件。
 
 ---
 
@@ -216,6 +238,9 @@ llm-launcher/
 ├── main.py                      # 入口文件
 ├── core/
 │   ├── config.py                # 配置读写 (ConfigStore)
+│   ├── config_preset.py         # 预设导入/导出
+│   ├── updater.py               # GitHub Release 更新检查
+│   ├── _version.py              # 应用版本号
 │   ├── process_manager.py       # llama-server 进程管理（含路由模式）
 │   ├── model_library.py         # 模型扫描与 GGUF 解析
 │   ├── model_resolver.py        # llama-server 路径查找
