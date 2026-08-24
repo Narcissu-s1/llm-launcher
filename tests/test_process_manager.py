@@ -6,6 +6,8 @@ import os
 import time
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from core.events import EventBus
@@ -95,6 +97,45 @@ def test_PID不存在时切换为crashed():
     assert crashed_events[0]["exit_code"] == -1
 
 
+@pytest.mark.parametrize("line", [
+    "main: server is listening on http://127.0.0.1:8080",
+    "0.00.102 I srv llama_server: listening on http://127.0.0.1:8080",
+])
+def test_旧版与新版监听日志均切换为running(line):
+    """兼容 llama.cpp 旧版和新版的服务监听日志。"""
+    bus = EventBus()
+    events = []
+    bus.on("status_changed", lambda **d: events.append(d))
+    sup = ProcessSupervisor(bus)
+    sup._pid = 123
+    sup._status = ProcessStatus.STARTING
+
+    sup._handle_log_line(line)
+    bus.flush()
+
+    assert sup.status() == ProcessStatus.RUNNING
+    assert events[-1]["status"] == "running"
+
+
+def test_启动阶段进程退出时切换为crashed():
+    """启动前尚未识别监听日志时退出，也应解除“启动中”状态。"""
+    bus = EventBus()
+    events = []
+    bus.on("status_changed", lambda **d: events.append(d))
+    sup = ProcessSupervisor(bus)
+    sup._pid = 123
+    sup._status = ProcessStatus.STARTING
+    sup._process = MagicMock(stdout=[])
+    sup._process.poll.return_value = 17
+
+    sup._poll_loop()
+    bus.flush()
+
+    assert sup.status() == ProcessStatus.CRASHED
+    assert events[-1]["status"] == "crashed"
+    assert events[-1]["exit_code"] == 17
+
+
 def test_高级参数_KVCache():
     """KV Cache 参数应正确拼接到命令行"""
     bus = EventBus()
@@ -171,6 +212,57 @@ def test_高级参数_默认值不拼接():
     assert "--presence-penalty" not in cmd
     assert "--frequency-penalty" not in cmd
     assert "--api-key" not in cmd
+    assert "--chat-template-file" not in cmd
+    assert "--reasoning" not in cmd
+    assert "--no-mmproj" not in cmd
+    assert "--no-mmproj-offload" not in cmd
+
+
+def test_聊天模板推理和多模态参数正确拼接():
+    """非默认聊天模板、推理和多模态开关应映射为 llama-server 参数。"""
+    bus = EventBus()
+    sup = ProcessSupervisor(bus)
+    params = {
+        "model_path": "test.gguf",
+        "server_path": "llama-server",
+        "port": 8080,
+        "host": "127.0.0.1",
+        "context_size": 4096,
+        "n_gpu_layers": 0,
+        "parallel": 1,
+        "chat_template_file": r"D:\templates\chat.jinja",
+        "reasoning": "on",
+        "reasoning_format": "deepseek",
+        "mmproj_auto": False,
+        "mmproj_offload": False,
+    }
+
+    cmd = sup._build_command(params)
+
+    assert cmd[cmd.index("--chat-template-file") + 1] == "D:/templates/chat.jinja"
+    assert cmd[cmd.index("--reasoning") + 1] == "on"
+    assert cmd[cmd.index("--reasoning-format") + 1] == "deepseek"
+    assert "-rea" not in cmd
+    assert "--no-mmproj" in cmd
+    assert "--no-mmproj-offload" in cmd
+
+
+def test_关闭jinja模板时传入否定参数():
+    """关闭聊天模板引擎时应传入 --no-jinja。"""
+    bus = EventBus()
+    sup = ProcessSupervisor(bus)
+    params = {
+        "model_path": "test.gguf",
+        "server_path": "llama-server",
+        "port": 8080,
+        "host": "127.0.0.1",
+        "context_size": 4096,
+        "n_gpu_layers": 0,
+        "parallel": 1,
+        "jinja": False,
+    }
+
+    assert "--no-jinja" in sup._build_command(params)
 
 
 def test_n_gpu_layers_auto默认值不拼接():

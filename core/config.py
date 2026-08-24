@@ -53,11 +53,13 @@ DEFAULT_CONFIG = {
         "seed": -1,              # 随机种子（-1=随机）
         "n_predict": -1,         # 最大生成 token 数（-1=无限）
         "ignore_eos": False,     # 忽略结束符持续生成
+        "chat_template_file": "",  # 自定义 Jinja 聊天模板文件
         # Phase 2 - 思考模式
         "reasoning": "auto",     # 启用推理/思考模式
         "reasoning_format": "auto",  # 推理输出格式
         "reasoning_budget": -1,  # 推理 token 预算（-1=自动）
         # Phase 2 - 多模态
+        "mmproj_auto": True,     # 自动加载可用的 mmproj
         "mmproj_offload": True,  # 将 mmproj 卸载到 GPU
         "image_min_tokens": 0,   # 图像最少 token 数
         "image_max_tokens": 0,   # 图像最多 token 数

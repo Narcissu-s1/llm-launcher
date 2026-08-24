@@ -29,6 +29,15 @@ def test_内置参数说明覆盖当前可调参数():
         "--spec-draft-p-split",
         "--spec-draft-p-min",
         "-md",
+        "--chat-template-file",
+        "--jinja",
+        "--no-jinja",
+        "--reasoning",
+        "--reasoning-format",
+        "--mmproj-auto",
+        "--no-mmproj",
+        "--mmproj-offload",
+        "--no-mmproj-offload",
     ]:
         assert flag in text
 

@@ -5,6 +5,7 @@ import logging
 import threading
 
 from core.events import EventBus, EVENT_LOG_LINE
+from core.server_readiness import is_server_ready_log
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,6 @@ KEYWORD_EVENTS = {
     "error": "log_error",
     "cuda error": "log_error",
     "out of memory": "log_oom",
-    "server is listening": "log_ready",
 }
 
 
@@ -74,6 +74,9 @@ class LogMonitor:
 
             # 检测关键词，发送额外事件
             line_lower = line.lower()
+            if is_server_ready_log(line):
+                self._event_bus.emit("log_ready", line=line)
+                continue
             for keyword, event_name in KEYWORD_EVENTS.items():
                 if keyword in line_lower:
                     self._event_bus.emit(event_name, line=line)

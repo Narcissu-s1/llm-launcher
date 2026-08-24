@@ -144,6 +144,7 @@ def test_新增参数默认值():
     assert server["frequency_penalty"] == 0.0
     assert server["seed"] == -1
     assert server["n_predict"] == -1
+    assert server["chat_template_file"] == ""
 
     # 思考模式
     assert server["reasoning"] == "auto"
@@ -151,6 +152,7 @@ def test_新增参数默认值():
     assert server["reasoning_budget"] == -1
 
     # 多模态
+    assert server["mmproj_auto"] is True
     assert server["mmproj_offload"] is True
     assert server["image_min_tokens"] == 0
     assert server["image_max_tokens"] == 0

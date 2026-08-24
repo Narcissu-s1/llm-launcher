@@ -15,6 +15,7 @@ from queue import Queue, Empty
 import psutil
 
 from core.events import EventBus, EVENT_STATUS_CHANGED, EVENT_LOG_LINE
+from core.server_readiness import is_server_ready_log
 
 logger = logging.getLogger(__name__)
 
@@ -259,6 +260,9 @@ class ProcessSupervisor:
             cmd.append("--no-warmup")
         if not params.get("jinja", True):
             cmd.append("--no-jinja")
+        chat_template_file = params.get("chat_template_file", "")
+        if chat_template_file:
+            cmd.extend(["--chat-template-file", _safe_path(chat_template_file)])
         if params.get("context_shift", False):
             cmd.append("--context-shift")
         if params.get("keep", 0) > 0:
@@ -290,13 +294,15 @@ class ProcessSupervisor:
 
         # Phase 2 - 思考模式
         if params.get("reasoning", "auto") != "auto":
-            cmd.extend(["-rea", params["reasoning"]])
+            cmd.extend(["--reasoning", params["reasoning"]])
         if params.get("reasoning_format") and params["reasoning_format"] != "auto":
             cmd.extend(["--reasoning-format", params["reasoning_format"]])
         if params.get("reasoning_budget", -1) != -1:
             cmd.extend(["--reasoning-budget", str(params["reasoning_budget"])])
 
         # Phase 2 - 多模态
+        if not params.get("mmproj_auto", True):
+            cmd.append("--no-mmproj")
         if not params.get("mmproj_offload", True):
             cmd.append("--no-mmproj-offload")
         if (params.get("image_min_tokens") or 0) > 0:
@@ -361,14 +367,7 @@ class ProcessSupervisor:
                 except Empty:
                     break  # 队列已空
 
-                line = line.rstrip()
-                self._last_logs.append(line)
-
-                self._event_bus.emit(EVENT_LOG_LINE, line=line)
-
-                # 检测启动完成标志
-                if self._status == ProcessStatus.STARTING and "server is listening" in line.lower():
-                    self._set_status(ProcessStatus.RUNNING, pid=self._pid)
+                self._handle_log_line(line)
 
             # 检测子进程是否已退出
             poll_result = self._process.poll()
@@ -383,7 +382,7 @@ class ProcessSupervisor:
                     except Empty:
                         break
 
-                if self._status == ProcessStatus.RUNNING:
+                if self._status in (ProcessStatus.STARTING, ProcessStatus.RUNNING):
                     self._set_status(
                         ProcessStatus.CRASHED,
                         exit_code=poll_result,
@@ -400,6 +399,15 @@ class ProcessSupervisor:
             self._poll_stop.wait(timeout=self._POLL_INTERVAL)
 
         reader_thread.join(timeout=1)
+
+    def _handle_log_line(self, line: str) -> None:
+        """记录日志行，并在服务开始监听时切换为运行中。"""
+        line = line.rstrip()
+        self._last_logs.append(line)
+        self._event_bus.emit(EVENT_LOG_LINE, line=line)
+
+        if self._status == ProcessStatus.STARTING and is_server_ready_log(line):
+            self._set_status(ProcessStatus.RUNNING, pid=self._pid)
 
     def _check_process(self) -> None:
         """单次 PID 存活检查

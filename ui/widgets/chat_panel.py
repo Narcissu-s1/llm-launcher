@@ -5,7 +5,7 @@ import urllib.request
 from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
-    QLineEdit, QPlainTextEdit, QLabel, QFileDialog, QMessageBox
+    QLineEdit, QTextEdit, QLabel, QFileDialog, QMessageBox
 )
 from PySide6.QtCore import QThread, Signal
 from core.config import ConfigStore
@@ -79,6 +79,8 @@ class ChatPanel(QWidget):
         super().__init__()
         self._config = config
         self._messages = []
+        self._display_messages = []
+        self._assistant_buffer = ""
         self._workers = []
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -94,7 +96,7 @@ class ChatPanel(QWidget):
         layout.addWidget(self._model_info)
 
         # 对话显示区
-        self._display = QPlainTextEdit()
+        self._display = QTextEdit()
         self._display.setReadOnly(True)
         layout.addWidget(self._display, stretch=1)
 
@@ -193,7 +195,12 @@ class ChatPanel(QWidget):
             display_text = text
 
         self._messages.append({"role": "user", "content": content})
-        self._display.appendPlainText(f"\nUser: {display_text}\nAssistant: ")
+        self._display_messages.extend([
+            ("用户", display_text),
+            ("助手", ""),
+        ])
+        self._assistant_buffer = ""
+        self._render_display()
         self._stats.setVisible(False)
         port = self._config.get("server.port") or 8080
         api_key = self._config.get("server.api_key") or ""
@@ -203,7 +210,7 @@ class ChatPanel(QWidget):
         self._btn_stop.setEnabled(True)
 
         def _on_worker_done():
-            self._messages.append({"role": "assistant", "content": self._display.toPlainText().split("Assistant: ")[-1]})
+            self._finish_assistant_message()
             if worker in self._workers:
                 self._workers.remove(worker)
             if not self._workers:
@@ -211,7 +218,8 @@ class ChatPanel(QWidget):
                 self._btn_stop.setEnabled(False)
 
         def _on_worker_error(e):
-            self._display.appendPlainText(f"\n[错误] {e}")
+            self._display_messages.append(("错误", e))
+            self._render_display()
             if worker in self._workers:
                 self._workers.remove(worker)
             if not self._workers:
@@ -225,11 +233,24 @@ class ChatPanel(QWidget):
         worker.start()
 
     def _append_token(self, token: str):
-        """将 token 追加到文本末尾，不受光标位置影响"""
-        cursor = self._display.textCursor()
-        cursor.movePosition(cursor.MoveOperation.End)
-        self._display.setTextCursor(cursor)
-        self._display.insertPlainText(token)
+        """追加流式 token，并按 Markdown 重绘当前回答。"""
+        self._assistant_buffer += token
+        self._display_messages[-1] = ("助手", self._assistant_buffer)
+        self._render_display()
+
+    def _finish_assistant_message(self):
+        """将原始 Markdown 回答写入历史，不从显示控件反推内容。"""
+        self._messages.append({"role": "assistant", "content": self._assistant_buffer})
+
+    def _render_display(self):
+        """以基础 Markdown 重新渲染对话记录。"""
+        markdown = "\n\n---\n\n".join(
+            f"### {role}\n\n{content}"
+            for role, content in self._display_messages
+        )
+        self._display.setMarkdown(markdown)
+        scrollbar = self._display.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     def _on_timings(self, s: dict):
         ttft = s.get("ttft_ms", 0)
@@ -245,6 +266,8 @@ class ChatPanel(QWidget):
 
     def _clear(self):
         self._messages.clear()
+        self._display_messages.clear()
+        self._assistant_buffer = ""
         self._display.clear()
 
     def _stop_generation(self):

@@ -106,8 +106,6 @@ class InferenceParams(_CollapsibleGroup):
         self._threads_http = QSpinBox(); self._threads_http.setRange(-1, 256); self._threads_http.setValue(-1)
         self._n_cpu_moe = QSpinBox(); self._n_cpu_moe.setRange(0, 256); self._n_cpu_moe.setValue(0)
         self._no_warmup = QCheckBox("跳过预热")
-        self._jinja = QCheckBox("启用 Jinja 模板 (--jinja)")
-        self._jinja.setChecked(True)
         self._context_shift = QCheckBox("上下文滑动 (--context-shift)"); self._context_shift.setChecked(True)
         self._keep = QSpinBox(); self._keep.setRange(0, 131072); self._keep.setValue(0)
         self._poll = QSpinBox(); self._poll.setRange(0, 100); self._poll.setValue(50)
@@ -118,7 +116,6 @@ class InferenceParams(_CollapsibleGroup):
         form.addRow("HTTP 线程数", self._threads_http)
         form.addRow("CPU MoE 层数", self._n_cpu_moe)
         form.addRow("", self._no_warmup)
-        form.addRow("", self._jinja)
         form.addRow("", self._context_shift)
         form.addRow("保护前缀 (--keep)", self._keep)
         form.addRow("轮询级别", self._poll)
@@ -133,7 +130,6 @@ class InferenceParams(_CollapsibleGroup):
             "threads_http": self._threads_http.value() if self._threads_http.value() != -1 else None,
             "n_cpu_moe": self._n_cpu_moe.value() if self._n_cpu_moe.value() != 0 else None,
             "no_warmup": self._no_warmup.isChecked(),
-            "jinja": self._jinja.isChecked(),
             "context_shift": self._context_shift.isChecked(),
             "keep": self._keep.value(),
             "poll": self._poll.value() if self._poll.value() != 50 else None,
@@ -214,11 +210,21 @@ class SamplingParams(_CollapsibleGroup):
 
 class ReasoningParams(_CollapsibleGroup):
     def __init__(self):
-        super().__init__("思考/推理模式")
+        super().__init__("聊天模板与思考/推理")
         form = QFormLayout(self)
+        self._chat_template_file = QLineEdit(); self._chat_template_file.setPlaceholderText("留空使用模型内置模板")
+        self._btn_browse_chat_template = QPushButton("浏览")
+        self._btn_browse_chat_template.clicked.connect(self._browse_chat_template_file)
+        template_row = QHBoxLayout()
+        template_row.addWidget(self._chat_template_file)
+        template_row.addWidget(self._btn_browse_chat_template)
+        self._jinja = QCheckBox("启用 Jinja 模板 (--jinja)")
+        self._jinja.setChecked(True)
         self._rea = QComboBox(); self._rea.addItems(["auto","on","off"])
         self._rea_format = QComboBox(); self._rea_format.addItems(["auto","none","deepseek","deepseek-legacy"])
         self._rea_budget = QSpinBox(); self._rea_budget.setRange(-1, 100000); self._rea_budget.setValue(-1)
+        form.addRow("聊天模板文件", template_row)
+        form.addRow("", self._jinja)
         form.addRow("思考模式 (-rea)", self._rea)
         form.addRow("思考格式", self._rea_format)
         form.addRow("思考预算", self._rea_budget)
@@ -226,12 +232,25 @@ class ReasoningParams(_CollapsibleGroup):
 
     def _collect(self):
         return {
+            "chat_template_file": self._chat_template_file.text().strip() or None,
+            "jinja": self._jinja.isChecked(),
             "reasoning": self._rea.currentText(),
             "reasoning_format": self._rea_format.currentText() if self._rea_format.currentText() != "none" else None,
             "reasoning_budget": self._rea_budget.value(),
         }
 
+    def _browse_chat_template_file(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择聊天模板文件", "",
+            "Jinja Files (*.jinja *.jinja2 *.tmpl);;All Files (*)",
+        )
+        if path:
+            self._chat_template_file.setText(path)
+
+    def restore_params(self, d: dict):
         super().restore_params(d)
+        if "chat_template_file" in d: self._chat_template_file.setText(d["chat_template_file"])
+        if "jinja" in d: self._jinja.setChecked(d["jinja"])
         if "reasoning" in d: self._rea.setCurrentText(d["reasoning"])
         if "reasoning_format" in d and d["reasoning_format"]: self._rea_format.setCurrentText(d["reasoning_format"])
         if "reasoning_budget" in d: self._rea_budget.setValue(d["reasoning_budget"])
@@ -241,9 +260,11 @@ class MultimodalParams(_CollapsibleGroup):
     def __init__(self):
         super().__init__("多模态")
         form = QFormLayout(self)
+        self._mmproj_auto = QCheckBox("自动加载可用 mmproj"); self._mmproj_auto.setChecked(True)
         self._mmproj_offload = QCheckBox("视觉编码器放 GPU"); self._mmproj_offload.setChecked(True)
         self._img_min = QSpinBox(); self._img_min.setRange(0, 10000); self._img_min.setValue(0)
         self._img_max = QSpinBox(); self._img_max.setRange(0, 10000); self._img_max.setValue(0)
+        form.addRow("", self._mmproj_auto)
         form.addRow("", self._mmproj_offload)
         form.addRow("最小视觉 Token", self._img_min)
         form.addRow("最大视觉 Token", self._img_max)
@@ -251,12 +272,15 @@ class MultimodalParams(_CollapsibleGroup):
 
     def _collect(self):
         return {
+            "mmproj_auto": self._mmproj_auto.isChecked(),
             "mmproj_offload": self._mmproj_offload.isChecked(),
             "image_min_tokens": self._img_min.value() if self._img_min.value() > 0 else None,
             "image_max_tokens": self._img_max.value() if self._img_max.value() > 0 else None,
         }
 
+    def restore_params(self, d: dict):
         super().restore_params(d)
+        if "mmproj_auto" in d: self._mmproj_auto.setChecked(d["mmproj_auto"])
         if "mmproj_offload" in d: self._mmproj_offload.setChecked(d["mmproj_offload"])
         if "image_min_tokens" in d and d["image_min_tokens"]: self._img_min.setValue(d["image_min_tokens"])
         if "image_max_tokens" in d and d["image_max_tokens"]: self._img_max.setValue(d["image_max_tokens"])
