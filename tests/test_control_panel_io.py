@@ -213,6 +213,15 @@ def test_gpu层数默认auto且不超过模型层数(control):
     assert control.collect_params()["n_gpu_layers"] == 48
 
 
+def test_加载模式可收集并随预设回填(control):
+    """load_mode 应保存在预设并回填到基础参数下拉框。"""
+    control._load_mode.setCurrentText("mmap+mlock")
+    assert control.collect_params()["load_mode"] == "mmap+mlock"
+
+    control._restore_from_preset({"load_mode": "dio"})
+    assert control._load_mode.currentText() == "dio"
+
+
 def test_cpu_moe层数范围按模型层数限制(control):
     """CPU MoE 层数范围应按 GGUF block_count 限制为 0..模型层数"""
     from core.model_library import ModelInfo

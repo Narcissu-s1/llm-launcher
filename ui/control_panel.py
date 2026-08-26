@@ -118,6 +118,12 @@ class ControlPanel(QWidget):
         self._ngl.setRange(-1, 9999)
         self._ngl.setSpecialValueText("auto")
         self._ngl.setValue(-1)
+        self._load_mode = QComboBox()
+        self._load_mode.addItems(["auto", "none", "mmap", "mlock", "mmap+mlock", "dio"])
+        self._load_mode.setToolTip(
+            "模型文件加载方式。auto 由 llama-server 自动选择；"
+            "mlock 和 mmap+mlock 会占用更多物理内存。"
+        )
         self._np = QComboBox()
         self._np.addItems(["1", "2", "4", "8"])
         self._host = QComboBox()
@@ -126,6 +132,7 @@ class ControlPanel(QWidget):
         form.addRow("端口", self._port)
         form.addRow("上下文长度", self._ctx)
         form.addRow("GPU 层数", self._ngl)
+        form.addRow("加载模式 (-lm)", self._load_mode)
         form.addRow("并发数", self._np)
         form.addRow("监听地址", self._host)
         root.addWidget(basic)
@@ -276,6 +283,7 @@ class ControlPanel(QWidget):
             "port": self._port.value(),
             "context_size": int(self._ctx.currentText()),
             "n_gpu_layers": "auto" if self._ngl.value() == -1 else self._ngl.value(),
+            "load_mode": self._load_mode.currentText(),
             "parallel": int(self._np.currentText()),
             "host": self._host.currentData(),
             "router_mode": self._router_mode.isChecked(),
@@ -322,6 +330,10 @@ class ControlPanel(QWidget):
 
         ngl = self._config.get("server.n_gpu_layers")
         self._ngl.setValue(-1 if ngl in (None, "auto") else int(ngl))
+
+        load_mode = self._config.get("server.load_mode") or "auto"
+        idx_load_mode = self._load_mode.findText(str(load_mode))
+        self._load_mode.setCurrentIndex(idx_load_mode if idx_load_mode >= 0 else 0)
 
         np_val = str(self._config.get("server.parallel") or 1)
         idx2 = self._np.findText(np_val)
@@ -439,6 +451,10 @@ class ControlPanel(QWidget):
         if "n_gpu_layers" in preset:
             ngl = preset["n_gpu_layers"]
             self._ngl.setValue(-1 if ngl == "auto" else int(ngl))
+        if "load_mode" in preset:
+            idx_load_mode = self._load_mode.findText(str(preset["load_mode"]))
+            if idx_load_mode >= 0:
+                self._load_mode.setCurrentIndex(idx_load_mode)
         if "parallel" in preset:
             idx2 = self._np.findText(str(preset["parallel"]))
             if idx2 >= 0:

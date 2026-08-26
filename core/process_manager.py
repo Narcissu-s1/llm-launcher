@@ -221,6 +221,9 @@ class ProcessSupervisor:
         n_gpu_layers = params.get("n_gpu_layers", "auto")
         if n_gpu_layers not in (None, "", "auto"):
             cmd.extend(["--n-gpu-layers", str(n_gpu_layers)])
+        load_mode = params.get("load_mode", "auto")
+        if load_mode not in (None, "", "auto"):
+            cmd.extend(["--load-mode", str(load_mode)])
 
         # Phase 2 - KV Cache 与显存
         if params.get("cache_type_k", "f16") != "f16":

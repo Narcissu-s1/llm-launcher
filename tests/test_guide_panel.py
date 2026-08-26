@@ -38,6 +38,7 @@ def test_内置参数说明覆盖当前可调参数():
         "--no-mmproj",
         "--mmproj-offload",
         "--no-mmproj-offload",
+        "--load-mode",
     ]:
         assert flag in text
 
@@ -56,6 +57,15 @@ def test_n_gpu_layers说明默认值与参数指南一致():
 
     assert "GPU 层数  --n-gpu-layers\nauto" in text
     assert "-1 = 全部卸载" not in text
+
+
+def test_模型加载模式说明默认值与UI一致():
+    """load_mode 默认 auto，内置指南应说明全部可选值。"""
+    text = _guide_text()
+
+    assert "模型加载模式  -lm / --load-mode\nauto" in text
+    for mode in ["none", "mmap", "mlock", "mmap+mlock", "dio"]:
+        assert mode in text
 
 
 def test_n_cpu_moe说明使用模型层数上限():

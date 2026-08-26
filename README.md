@@ -136,6 +136,7 @@ python main.py
 | 端口 | 8080 | HTTP 服务监听端口 |
 | 上下文长度 | 32768 | 模型单次处理的最大 token 数 |
 | GPU 层数 | auto | 由 llama-server 决定卸载层数；手动数值为 0=纯 CPU，1~N=指定卸载层数 |
+| 模型加载模式 | auto | `-lm` / `--load-mode`；可选 auto、none、mmap、mlock、mmap+mlock、dio，默认 auto 交给 llama-server 自动选择 |
 | 并发数 | 1 | 同时处理的请求数，每个 slot 独占 KV Cache |
 | 监听地址 | 127.0.0.1 | 仅本机访问；改为 0.0.0.0 允许局域网 |
 

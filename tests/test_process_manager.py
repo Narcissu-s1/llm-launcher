@@ -216,6 +216,26 @@ def test_高级参数_默认值不拼接():
     assert "--reasoning" not in cmd
     assert "--no-mmproj" not in cmd
     assert "--no-mmproj-offload" not in cmd
+    assert "--load-mode" not in cmd
+
+
+def test_模型加载模式非默认值正确拼接():
+    """非 auto 的加载模式应传给 llama-server。"""
+    sup = ProcessSupervisor(EventBus())
+    params = {
+        "model_path": "test.gguf",
+        "server_path": "llama-server",
+        "port": 8080,
+        "host": "127.0.0.1",
+        "context_size": 4096,
+        "n_gpu_layers": 0,
+        "parallel": 1,
+        "load_mode": "mmap+mlock",
+    }
+
+    cmd = sup._build_command(params)
+
+    assert cmd[cmd.index("--load-mode") + 1] == "mmap+mlock"
 
 
 def test_聊天模板推理和多模态参数正确拼接():

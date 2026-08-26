@@ -25,6 +25,7 @@ DEFAULT_CONFIG = {
         "host": "127.0.0.1",     # 监听地址
         "context_size": 32768,   # 上下文大小 (-c)
         "n_gpu_layers": "auto",  # GPU 层数 (--n-gpu-layers)，auto=由 llama-server 决定
+        "load_mode": "auto",   # 模型加载模式（--load-mode），auto=由 llama-server 决定
         "parallel": 1,           # 并发数 (-np)
         # Phase 2 - KV Cache
         "cache_type_k": "f16",   # K 缓存类型

@@ -133,6 +133,7 @@ def test_新增参数默认值():
     assert server["threads_http"] == -1
     assert server["no_warmup"] is False
     assert server["n_gpu_layers"] == "auto"
+    assert server["load_mode"] == "auto"
 
     # 采样参数
     assert server["temp"] == 0.6
