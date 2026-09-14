@@ -11,7 +11,7 @@ if errorlevel 1 (
     exit /b 1
   )
 )
-"%UV%" run --locked main.py
+"%UV%" run --locked --group build python scripts/build.py %*
 set "RESULT=%ERRORLEVEL%"
-if not "%RESULT%"=="0" pause
+pause
 exit /b %RESULT%

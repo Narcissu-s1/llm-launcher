@@ -18,6 +18,14 @@
 
 ---
 
+## v1.3.1 更新亮点
+
+- **环境隔离与依赖锁定** — 使用 uv 管理 Python 和项目虚拟环境，源码运行、测试和构建共享可重建的依赖清单。
+- **构建入口统一** — 启动与编译脚本使用项目环境，构建工具不再依赖全局 Python 安装路径。
+- **模型加载模式** — 支持选择 llama.cpp 的模型加载方式，默认保留引擎自动选择行为。
+
+---
+
 ## v1.3.0 更新亮点
 
 - **新版引擎兼容** — 兼容新版 llama.cpp 的 `listening on` 启动日志，服务就绪后不再一直显示“启动中”
@@ -114,13 +122,41 @@ flowchart LR
 
 ### 从源码运行（开发者）
 
-```bash
-# 安装依赖
-pip install PySide6 psutil pyyaml requests huggingface-hub
+项目使用 uv 管理 Python 和项目内的 `.venv`，无需使用全局 Python 或手动激活环境。
+先按 [uv 官方说明](https://docs.astral.sh/uv/getting-started/installation/) 安装 uv，再打开新的 PowerShell，在项目目录执行：
 
-# 启动
-python main.py
+```powershell
+# 按锁文件安装运行与开发依赖，同时下载固定版本的 Python
+uv sync --locked
+
+# 启动，也可以双击 start.cmd
+uv run --locked main.py
+
+# 测试
+uv run --locked python -m pytest
+
+# 打包，也可以双击 C编译.bat
+uv run --locked --group build python scripts/build.py
 ```
+
+`pyproject.toml` 声明依赖，`uv.lock` 锁定版本，`.python-version` 固定开发用 Python。
+运行依赖与开发依赖默认安装，构建依赖通过 `--group build` 安装。项目只使用 uv 管理的 Python。
+测试临时文件写入项目 `.pytest_cache/tmp`，每次 pytest 运行会重建该专用目录。
+
+```powershell
+# 添加依赖；测试工具使用 uv add --dev，构建工具使用 uv add --group build
+uv add 包名
+
+# 显式更新某个依赖，测试通过后提交新的锁文件
+uv lock --upgrade-package 包名
+uv sync --locked
+
+# 按需导出给 pip 使用，不手工维护第二份清单
+uv export --locked --no-dev --format requirements.txt --output-file requirements.txt
+```
+
+提交项目配置和锁文件，不提交 `.venv`。环境迁移、验证结果及人工验收步骤见
+[uv 环境记录](docs/environment-uv.md)。
 
 > [!NOTE]
 > 首次启动会自动在程序目录创建 `config.yaml` 配置文件。

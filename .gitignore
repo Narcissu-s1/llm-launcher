@@ -39,10 +39,9 @@ skills-lock.json
 gguf_info.py
 
 # 文档输出
-docs/
+docs/*
+!docs/environment-uv.md
 
-# 构建脚本
-C编译.bat
 
 # 系统文件
 Thumbs.db
