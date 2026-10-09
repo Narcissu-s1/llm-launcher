@@ -74,3 +74,13 @@ def test_n_cpu_moe说明使用模型层数上限():
 
     assert "CPU MoE 层数  --n-cpu-moe\n0（不传参），范围 0 ~ 模型层数" in text
     assert "范围 -1 ~ 256" not in text
+
+
+def test_内置指南说明同步后的默认和特殊取值():
+    text = _guide_text()
+    for value in ["draft-dflash", "draft-dspark", "iq4_nl", "bf16", "无上限", "0 = 禁用",
+                  "-1 = 保留全部", "3600 秒（默认）", "关闭（与上游默认一致）"]:
+        assert value in text
+    assert "空闲 Slot 复活" not in text
+    assert "思考内容保持未解析状态并留在 message.content" in text
+    assert "不在响应中输出思考内容" not in text

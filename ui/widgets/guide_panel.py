@@ -91,7 +91,7 @@ _SECTIONS = [
          "控制模型文件的加载方式。auto = 自动选择；none = 不使用特殊加载；mmap = 内存映射；mlock = 锁定在 RAM；mmap+mlock = 同时启用两者；dio = 可用时使用 DirectIO。默认 auto 不会显式传参。"),
         ("并发数  -np",
          "1",
-         "同时处理的请求槽位数。选项：1 / 2 / 4 / 8。每个 slot 独占一份 KV Cache，会等比增加显存占用。单用户 Agent 场景设 1 即可。"),
+         "同时处理的请求槽位数。选项：1 / 2 / 4 / 8。启用统一 KV 池时多个 slot 共享缓存；上游默认 -1 为自动，启动器默认明确使用 1。"),
         ("端口  --port",
          "8080",
          "HTTP 服务监听端口。若被其他程序占用，启动时会提示冲突，换一个未占用的端口即可。"),
@@ -102,10 +102,10 @@ _SECTIONS = [
     ("KV Cache 与显存", [
         ("KV-K 量化  -ctk\nKV-V 量化  -ctv",
          "f16",
-         "对 KV Cache 的 Key / Value 张量进行量化以节省显存。f16 = 全精度；q8_0 ≈ 节省 50%，精度损失极小（推荐长上下文场景）；q4_0 ≈ 节省 75% 但精度下降明显。"),
+         "K / V 缓存类型均可选 f32、f16、bf16、q8_0、q4_0、q4_1、iq4_nl、q5_0、q5_1。浮点类型保留较高精度；量化类型可节省缓存空间，收益与模型和后端有关。"),
         ("统一 KV 池  -kvu",
          "开启（默认勾选）",
-         "多个并发 slot 共享同一 KV 池，提升多并发下的显存利用率。多用户场景配合 -ctk q8_0 可显著降低显存占用。"),
+         "多个并发 slot 共享同一 KV 池。勾选后明确传入 --kv-unified，取消勾选传入 --no-kv-unified；分组未启用时交给上游决定（自动槽位时默认启用）。"),
         ("KV 不放 GPU  --no-kv-offload",
          "关闭",
          "强制 KV Cache 保留在 CPU 内存，适合 GPU 显存极度紧张时牺牲速度换稳定性。"),
@@ -115,12 +115,12 @@ _SECTIONS = [
         ("Prompt Cache  --cache-prompt",
          "开启（默认勾选）",
          "缓存 system prompt 的 KV 状态，下次相同前缀时跳过重算。Agent 场景每轮共享相同 system prompt + 工具定义，开启后首 token 延迟大幅降低。"),
-        ("空闲 Slot 复活  --cache-idle-slots",
+        ("缓存空闲 Slot  --cache-idle-slots",
          "开启（默认勾选）",
-         "空闲的 slot 保留 KV 缓存而非立即清空，再次使用时可复用，减少重新填充开销。"),
+         "新任务到来时将空闲 slot 保存到 prompt cache；统一 KV 模式下随后清空该 slot。需要启用 cache-ram。"),
         ("Cache RAM 上限  --cache-ram",
          "8192 MiB",
-         "KV Cache 在 CPU 内存中的最大占用量（MiB）。超出后旧缓存会被逐出。"),
+         "Prompt cache 的内存上限（MiB）。-1 = 无上限，0 = 禁用；超出上限后旧缓存会被逐出。"),
     ]),
     ("推理速度", [
         ("线程数  -t",
@@ -145,11 +145,11 @@ _SECTIONS = [
          "关闭",
          "跳过启动时的预热推理，加快启动速度，但首次实际请求可能稍慢（需 JIT 编译/缓存初始化）。"),
         ("上下文滑动  --context-shift",
-         "开启（默认勾选）",
-         "长对话保护：上下文填满时滑动窗口而非截断，保留最近的对话内容。Agent 多轮场景建议开启，配合 --keep 使用。"),
+         "关闭（与上游默认一致）",
+         "控制无限文本生成中的上下文滑动。需要时勾选后传入 --context-shift，可配合 --keep 保护初始提示词。"),
         ("保护前缀  --keep <n>",
          "0",
-         "配合 --context-shift，保护开头 N 个 token 不被滑走（通常是 system prompt + 工具定义）。建议值 = system prompt tokens + 工具定义 tokens，约 1000~5000。"),
+         "配合 --context-shift，保护初始提示词中的 N 个 token。0 = 不保护，-1 = 保留全部初始提示词。"),
         ("轮询级别  --poll <0-100>",
          "50",
          "控制服务端等待新请求时的 CPU 轮询比例。0 = 纯睡眠（低 CPU 占用，延迟略高）；100 = 纯忙等（最低延迟，高 CPU 占用）；50 = 平衡默认值。低延迟场景可调高，后台运行可调低。"),
@@ -197,11 +197,11 @@ _SECTIONS = [
          "auto，选项：auto / on / off",
          "控制模型的链式思考（Chain-of-Thought）行为。auto = 模型自行决定；on = 强制开启 CoT；off = 禁用思考过程。适用于 DeepSeek-R1 等支持思考模式的模型。"),
         ("思考格式  --reasoning-format",
-         "none，选项：none / deepseek / deepseek-legacy",
-         "思考内容的输出格式。deepseek = 使用 <think>...</think> 标签包裹思考过程；none = 不在响应中输出思考内容。"),
+         "auto，选项：auto / none / deepseek / deepseek-legacy",
+         "none = 思考内容保持未解析状态并留在 message.content；deepseek = 抽取到 message.reasoning_content；deepseek-legacy = 保留 content 中的 <think> 标签，同时填写 reasoning_content。"),
         ("思考预算  --reasoning-budget",
          "-1（不限），0 = 不思考",
-         "限制思考阶段最多生成的 token 数，用于控制推理成本和响应速度。-1 = 不限制；0 = 禁止思考（同 -rea off）；正数 = token 上限。"),
+         "限制思考阶段的 token 预算。-1 = 不限制；0 = 立即结束思考；正数 = token 预算。此参数与是否启用思考模式分别控制。"),
     ]),
     ("多模态", [
         ("自动加载 mmproj  --mmproj-auto / --no-mmproj",
@@ -219,8 +219,8 @@ _SECTIONS = [
          "空（无鉴权）",
          "设置后，客户端请求须携带 Authorization: Bearer <key> 请求头。仅本机访问（127.0.0.1）时可留空；局域网访问时强烈建议设置以防止未授权使用。"),
         ("超时秒数  --timeout",
-         "1200 秒（默认）",
-         "单次请求的最长处理时间。超时后服务端强制断开连接。Agent 复杂推理或工具调用链可能耗时较长，建议设为 1200 秒以上。"),
+         "3600 秒（默认）",
+         "服务器读写超时时间。默认不额外传参；旧预设中的 1200 秒等非默认值仍会明确传入 --timeout。"),
         ("Prometheus 监控  --metrics",
          "关闭",
          "暴露 /metrics 端点，供 Prometheus 抓取延迟、吞吐量、KV Cache 命中率等指标，用于生产环境监控。"),
@@ -229,12 +229,12 @@ _SECTIONS = [
          "暴露 /slots 端点，可实时查看各并发槽位的当前状态（空闲 / 处理中 / 等待）。取消勾选会传入 --no-slots。"),
         ("WUI 工具  --tools all",
          "关闭",
-         "启用 llama-server 内置 Web 工具界面，在浏览器中提供交互式聊天与工具页面。勾选左侧面板「启动WUI工具」启用。"),
+         "启用内置代理工具，包括读取、搜索、写入文件和执行 Shell 命令。勾选「启动WUI工具」后传入 --tools all；上游默认不启用工具，并会默认将 CORS 来源限制为 localhost。"),
     ]),
     ("投机解码", [
         ("投机类型  --spec-type",
          "none，选项见下拉框",
-         "选择投机解码后端。none = 关闭；draft-* 使用草稿模型预测候选 token；ngram-* 使用 n-gram 规则预测候选 token。开启后需结合模型和显存实测收益。"),
+         "选择投机解码类型。新增 draft-dflash、draft-dspark；none = 关闭，draft-* 使用草稿模型，ngram-* 使用 n-gram 规则。上游支持逗号分隔多个类型，当前界面选择单一类型。"),
         ("最大草稿数  --spec-draft-n-max",
          "3，范围 1 ~ 64",
          "每轮最多接受的草稿 token 数。数值越大理论吞吐越高，但草稿质量不足时可能增加回退开销。"),
@@ -292,7 +292,8 @@ class GuidePanel(QWidget):
         layout.addWidget(title)
 
         subtitle = QLabel(
-            "基于项目需求文档整理。高级参数分组默认折叠，勾选后才会传入命令行；"
+            "依据 docs/LLaMA.cpp HTTP Server.md 同步（2026-10-09）。此处默认值为启动器界面值。"
+            "高级参数分组默认折叠，勾选后才会传入命令行；"
             "未勾选的分组使用 llama.cpp 内置默认值。"
         )
         subtitle.setStyleSheet("font-size:12px;color:#718096;border:none;padding-bottom:4px;")

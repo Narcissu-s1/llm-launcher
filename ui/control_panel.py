@@ -467,7 +467,7 @@ class ControlPanel(QWidget):
         # 反向重映射，恢复 param_groups 期望的键名
         pg_preset = {_REMAP_BACK.get(k, k): v for k, v in preset.items()}
         for w in [self._kv_params, self._inf_params, self._samp_params,
-                  self._rea_params, self._mm_params, self._sec_params]:
+                  self._rea_params, self._mm_params, self._sec_params, self._spec_params]:
             w.restore_params(pg_preset)
 
     def _delete_preset(self):

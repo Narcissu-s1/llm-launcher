@@ -222,6 +222,28 @@ def test_加载模式可收集并随预设回填(control):
     assert control._load_mode.currentText() == "dio"
 
 
+def test_同步后的高级预设能够回填并生成命令(control):
+    from core.events import EventBus
+    from core.process_manager import ProcessSupervisor
+
+    preset = {
+        "cache_type_k": "bf16", "cache_type_v": "iq4_nl", "kv_unified": True,
+        "cache_ram": 0, "reasoning_format": "none", "spec_type": "draft-dflash",
+        "timeout": 1200, "context_shift": True, "keep": -1,
+    }
+    control._restore_from_preset(preset)
+    params = control.collect_params()
+    for key, value in preset.items():
+        assert params[key] == value
+    cmd = ProcessSupervisor(EventBus())._build_command(params)
+    for flag, value in [("-ctk", "bf16"), ("-ctv", "iq4_nl"), ("--cache-ram", "0"),
+                        ("--reasoning-format", "none"), ("--spec-type", "draft-dflash"),
+                        ("--timeout", "1200"), ("--keep", "-1")]:
+        assert cmd[cmd.index(flag) + 1] == value
+    assert "--kv-unified" in cmd
+    assert "--context-shift" in cmd
+
+
 def test_cpu_moe层数范围按模型层数限制(control):
     """CPU MoE 层数范围应按 GGUF block_count 限制为 0..模型层数"""
     from core.model_library import ModelInfo

@@ -66,7 +66,7 @@ DEFAULT_CONFIG = {
         "image_max_tokens": 0,   # 图像最多 token 数
         # Phase 2 - 安全
         "api_key": "",           # API 密钥（空=不启用认证）
-        "timeout": 1200,         # 请求超时（秒）
+        "timeout": 3600,         # 服务器读写超时（秒）
         "metrics": False,        # 启用 /metrics 端点
         "slots": True,           # 启用 /slots 端点
         "tools": False,          # 启用内置 WUI 工具界面（--tools）

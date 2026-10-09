@@ -20,6 +20,7 @@ def test_文件不存在时返回默认值():
         assert config["server"]["port"] == 8080
         assert config["server"]["host"] == "127.0.0.1"
         assert config["server"]["n_gpu_layers"] == "auto"
+        assert config["server"]["timeout"] == 3600
 
 
 def test_读写正常():
@@ -160,6 +161,6 @@ def test_新增参数默认值():
 
     # 安全
     assert server["api_key"] == ""
-    assert server["timeout"] == 1200
+    assert server["timeout"] == 3600
     assert server["metrics"] is False
     assert server["slots"] is True

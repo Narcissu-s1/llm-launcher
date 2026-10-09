@@ -173,12 +173,16 @@ uv export --locked --no-dev --format requirements.txt --output-file requirements
 | 上下文长度 | 32768 | 模型单次处理的最大 token 数 |
 | GPU 层数 | auto | 由 llama-server 决定卸载层数；手动数值为 0=纯 CPU，1~N=指定卸载层数 |
 | 模型加载模式 | auto | `-lm` / `--load-mode`；可选 auto、none、mmap、mlock、mmap+mlock、dio，默认 auto 交给 llama-server 自动选择 |
-| 并发数 | 1 | 同时处理的请求数，每个 slot 独占 KV Cache |
+| 并发数 | 1 | 同时处理的请求数；启用统一 KV 池时多个 slot 共享缓存，上游默认 -1（自动） |
 | 监听地址 | 127.0.0.1 | 仅本机访问；改为 0.0.0.0 允许局域网 |
 
 ### 高级参数
 
 高级参数按分组折叠显示，**默认不传入命令行**（使用 llama.cpp 内置默认值）。展开并修改后才生效。
+
+参数已依据本地 [LLaMA.cpp HTTP Server 文档](docs/LLaMA.cpp%20HTTP%20Server.md) 于 2026-10-09 同步。[完整参数指南](docs/llama-server-参数指南.html) 对新增项标注「新增」，保留弃用及已移除项并加删除线。内置指南显示启动器界面默认值；完整指南显示上游默认值。
+
+当前控制项补齐 9 种 K/V 缓存类型及 `draft-dflash`、`draft-dspark` 投机类型；支持 `--cache-ram -1`（无上限）、`0`（禁用）和 `--keep -1`（保留全部初始提示词）。统一 KV 开关明确传参；`reasoning-format=none` 可正常保存并传入。上下文滑动默认关闭，读写超时默认 3600 秒，旧预设显式设置的值继续生效。采样组启用后，界面默认的温度 0.6、Top-P 0.9、重复惩罚 1.1 会明确传参。
 
 | 分组 | 包含参数 |
 |------|----------|

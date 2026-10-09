@@ -230,8 +230,8 @@ class ProcessSupervisor:
             cmd.extend(["-ctk", params["cache_type_k"]])
         if params.get("cache_type_v", "f16") != "f16":
             cmd.extend(["-ctv", params["cache_type_v"]])
-        if not params.get("kv_unified", True):
-            cmd.append("--no-kv-unified")
+        if "kv_unified" in params:
+            cmd.append("--kv-unified" if params["kv_unified"] else "--no-kv-unified")
         if params.get("no_kv_offload", False):
             cmd.append("--no-kv-offload")
         fa = params.get("flash_attn", "auto")
@@ -268,21 +268,21 @@ class ProcessSupervisor:
             cmd.extend(["--chat-template-file", _safe_path(chat_template_file)])
         if params.get("context_shift", False):
             cmd.append("--context-shift")
-        if params.get("keep", 0) > 0:
+        if params.get("keep", 0) != 0:
             cmd.extend(["--keep", str(params["keep"])])
         if params.get("poll") is not None and params["poll"] != 50:
             cmd.extend(["--poll", str(params["poll"])])
 
         # Phase 2 - 采样参数
-        if abs(params.get("temp", 0.60) - 0.60) > 0.001:
+        if "temp" in params and abs(params["temp"] - 0.80) > 0.001:
             cmd.extend(["--temp", str(params["temp"])])
         if params.get("top_k", 40) != 40:
             cmd.extend(["--top-k", str(params["top_k"])])
-        if abs(params.get("top_p", 0.90) - 0.90) > 0.001:
+        if "top_p" in params and abs(params["top_p"] - 0.95) > 0.001:
             cmd.extend(["--top-p", str(params["top_p"])])
         if abs(params.get("min_p", 0.05) - 0.05) > 0.001:
             cmd.extend(["--min-p", str(params["min_p"])])
-        if abs(params.get("repeat_penalty", 1.10) - 1.10) > 0.001:
+        if "repeat_penalty" in params and abs(params["repeat_penalty"] - 1.00) > 0.001:
             cmd.extend(["--repeat-penalty", str(params["repeat_penalty"])])
         if abs(params.get("presence_penalty", 0.0)) > 0.001:
             cmd.extend(["--presence-penalty", str(params["presence_penalty"])])
@@ -316,7 +316,7 @@ class ProcessSupervisor:
         # Phase 2 - 安全与访问控制
         if params.get("api_key", ""):
             cmd.extend(["--api-key", params["api_key"]])
-        if params.get("timeout", 1200) != 1200:
+        if params.get("timeout", 3600) != 3600:
             cmd.extend(["--timeout", str(params["timeout"])])
         if params.get("metrics", False):
             cmd.append("--metrics")

@@ -425,3 +425,40 @@ def test_高级参数_spec_draft_model为空不拼接():
 
     cmd = sup._build_command(params)
     assert "-md" not in cmd
+
+
+@pytest.mark.parametrize("value, flag", [(True, "--kv-unified"), (False, "--no-kv-unified")])
+def test_统一KV明确传递开关(value, flag):
+    sup = ProcessSupervisor(EventBus())
+    cmd = sup._build_command({"model_path": "test.gguf", "kv_unified": value})
+    assert flag in cmd
+
+
+def test_采样界面默认值与上游默认值不同仍须传参():
+    sup = ProcessSupervisor(EventBus())
+    cmd = sup._build_command({"model_path": "test.gguf", "temp": 0.6, "top_p": 0.9, "repeat_penalty": 1.1})
+    for flag, value in [("--temp", "0.6"), ("--top-p", "0.9"), ("--repeat-penalty", "1.1")]:
+        assert cmd[cmd.index(flag) + 1] == value
+
+
+def test_上游采样默认值无需传参():
+    sup = ProcessSupervisor(EventBus())
+    cmd = sup._build_command({"model_path": "test.gguf", "temp": 0.8, "top_p": 0.95, "repeat_penalty": 1.0})
+    assert not {"--temp", "--top-p", "--repeat-penalty"}.intersection(cmd)
+
+
+@pytest.mark.parametrize("timeout", [0, 1200, 3600])
+def test_超时与上游默认值同步且保留旧设置(timeout):
+    sup = ProcessSupervisor(EventBus())
+    cmd = sup._build_command({"model_path": "test.gguf", "timeout": timeout})
+    if timeout == 3600:
+        assert "--timeout" not in cmd
+    else:
+        assert cmd[cmd.index("--timeout") + 1] == str(timeout)
+
+
+def test_全部前缀与none推理格式正确传参():
+    sup = ProcessSupervisor(EventBus())
+    cmd = sup._build_command({"model_path": "test.gguf", "keep": -1, "reasoning_format": "none"})
+    assert cmd[cmd.index("--keep") + 1] == "-1"
+    assert cmd[cmd.index("--reasoning-format") + 1] == "none"

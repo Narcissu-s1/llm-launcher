@@ -50,14 +50,16 @@ class KVCacheParams(_CollapsibleGroup):
     def __init__(self):
         super().__init__("KV Cache 与显存")
         form = QFormLayout(self)
-        self._ctk = QComboBox(); self._ctk.addItems(["f16","q8_0","q4_0"])
-        self._ctv = QComboBox(); self._ctv.addItems(["f16","q8_0","q4_0"])
+        cache_types = ["f16", "f32", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"]
+        self._ctk = QComboBox(); self._ctk.addItems(cache_types)
+        self._ctv = QComboBox(); self._ctv.addItems(cache_types)
         self._kvu = QCheckBox("统一 KV 池"); self._kvu.setChecked(True)
         self._no_kv_offload = QCheckBox("KV 不放 GPU")
         self._fa = QComboBox(); self._fa.addItems(["auto", "on", "off"])
         self._cache_prompt = QCheckBox("Prompt Cache"); self._cache_prompt.setChecked(True)
-        self._cache_idle = QCheckBox("空闲 Slot 复活"); self._cache_idle.setChecked(True)
-        self._cache_ram = QSpinBox(); self._cache_ram.setRange(0, 999999); self._cache_ram.setValue(8192)
+        self._cache_idle = QCheckBox("缓存空闲 Slot"); self._cache_idle.setChecked(True)
+        self._cache_ram = QSpinBox(); self._cache_ram.setRange(-1, 999999); self._cache_ram.setValue(8192)
+        self._cache_ram.setToolTip("-1 = 无上限；0 = 禁用；默认 8192 MiB")
         form.addRow("KV-K 量化 (-ctk)", self._ctk)
         form.addRow("KV-V 量化 (-ctv)", self._ctv)
         form.addRow("", self._kvu)
@@ -80,6 +82,7 @@ class KVCacheParams(_CollapsibleGroup):
             "cache_ram": self._cache_ram.value() if self._cache_ram.value() != 8192 else None,
         }
 
+    def restore_params(self, d: dict):
         super().restore_params(d)
         if "ctk" in d: self._ctk.setCurrentText(d["ctk"])
         if "ctv" in d: self._ctv.setCurrentText(d["ctv"])
@@ -92,7 +95,7 @@ class KVCacheParams(_CollapsibleGroup):
             self._fa.setCurrentText(str(fa))
         if "cache_prompt" in d: self._cache_prompt.setChecked(d["cache_prompt"])
         if "cache_idle_slots" in d: self._cache_idle.setChecked(d["cache_idle_slots"])
-        if "cache_ram" in d and d["cache_ram"]: self._cache_ram.setValue(d["cache_ram"])
+        if d.get("cache_ram") is not None: self._cache_ram.setValue(d["cache_ram"])
 
 
 class InferenceParams(_CollapsibleGroup):
@@ -106,8 +109,9 @@ class InferenceParams(_CollapsibleGroup):
         self._threads_http = QSpinBox(); self._threads_http.setRange(-1, 256); self._threads_http.setValue(-1)
         self._n_cpu_moe = QSpinBox(); self._n_cpu_moe.setRange(0, 256); self._n_cpu_moe.setValue(0)
         self._no_warmup = QCheckBox("跳过预热")
-        self._context_shift = QCheckBox("上下文滑动 (--context-shift)"); self._context_shift.setChecked(True)
-        self._keep = QSpinBox(); self._keep.setRange(0, 131072); self._keep.setValue(0)
+        self._context_shift = QCheckBox("上下文滑动 (--context-shift)"); self._context_shift.setChecked(False)
+        self._keep = QSpinBox(); self._keep.setRange(-1, 131072); self._keep.setValue(0)
+        self._keep.setToolTip("-1 = 保留全部初始提示词；0 = 不保护前缀")
         self._poll = QSpinBox(); self._poll.setRange(0, 100); self._poll.setValue(50)
         form.addRow("线程数 (-t)", self._threads)
         form.addRow("Prompt 线程 (-tb)", self._threads_batch)
@@ -135,6 +139,7 @@ class InferenceParams(_CollapsibleGroup):
             "poll": self._poll.value() if self._poll.value() != 50 else None,
         }
 
+    def restore_params(self, d: dict):
         super().restore_params(d)
         if "threads" in d and d["threads"]: self._threads.setValue(d["threads"])
         if "threads_batch" in d and d["threads_batch"]: self._threads_batch.setValue(d["threads_batch"])
@@ -143,6 +148,9 @@ class InferenceParams(_CollapsibleGroup):
         if "threads_http" in d and d["threads_http"]: self._threads_http.setValue(d["threads_http"])
         if "n_cpu_moe" in d and d["n_cpu_moe"]: self._n_cpu_moe.setValue(d["n_cpu_moe"])
         if "no_warmup" in d: self._no_warmup.setChecked(d["no_warmup"])
+        if "context_shift" in d: self._context_shift.setChecked(d["context_shift"])
+        if "keep" in d: self._keep.setValue(d["keep"])
+        if d.get("poll") is not None: self._poll.setValue(d["poll"])
 
     def set_model_block_count(self, block_count: int):
         """按模型层数限制 --n-cpu-moe 上限。"""
@@ -235,7 +243,7 @@ class ReasoningParams(_CollapsibleGroup):
             "chat_template_file": self._chat_template_file.text().strip() or None,
             "jinja": self._jinja.isChecked(),
             "reasoning": self._rea.currentText(),
-            "reasoning_format": self._rea_format.currentText() if self._rea_format.currentText() != "none" else None,
+            "reasoning_format": self._rea_format.currentText(),
             "reasoning_budget": self._rea_budget.value(),
         }
 
@@ -291,7 +299,7 @@ class SecurityParams(_CollapsibleGroup):
         super().__init__("安全与访问控制")
         form = QFormLayout(self)
         self._api_key = QLineEdit(); self._api_key.setPlaceholderText("留空不传参")
-        self._timeout = QSpinBox(); self._timeout.setRange(0, 86400); self._timeout.setValue(1200)
+        self._timeout = QSpinBox(); self._timeout.setRange(0, 86400); self._timeout.setValue(3600)
         self._metrics = QCheckBox("Prometheus 监控 (--metrics)")
         self._slots = QCheckBox("Slots 端点 (--slots)"); self._slots.setChecked(True)
         form.addRow("API Key", self._api_key)
@@ -308,6 +316,7 @@ class SecurityParams(_CollapsibleGroup):
             "slots": self._slots.isChecked(),
         }
 
+    def restore_params(self, d: dict):
         super().restore_params(d)
         if "api_key" in d and d["api_key"]: self._api_key.setText(d["api_key"])
         if "timeout" in d: self._timeout.setValue(d["timeout"])
@@ -320,7 +329,7 @@ class SpeculativeParams(_CollapsibleGroup):
         super().__init__("投机解码 (Speculative Decoding)")
         form = QFormLayout(self)
         self._spec_type = QComboBox()
-        self._spec_type.addItems(["none", "draft-simple", "draft-eagle3", "draft-mtp", "ngram-simple", "ngram-map-k", "ngram-map-k4v", "ngram-mod", "ngram-cache"])
+        self._spec_type.addItems(["none", "draft-simple", "draft-eagle3", "draft-mtp", "draft-dflash", "draft-dspark", "ngram-simple", "ngram-map-k", "ngram-map-k4v", "ngram-mod", "ngram-cache"])
         self._draft_n_max = QSpinBox(); self._draft_n_max.setRange(1, 64); self._draft_n_max.setValue(3)
         self._draft_n_min = QSpinBox(); self._draft_n_min.setRange(0, 64); self._draft_n_min.setValue(0)
         self._draft_p_split = QDoubleSpinBox(); self._draft_p_split.setRange(0.0, 1.0); self._draft_p_split.setSingleStep(0.05); self._draft_p_split.setValue(0.1)
@@ -357,3 +366,12 @@ class SpeculativeParams(_CollapsibleGroup):
             "spec_draft_p_min": self._draft_p_min.value(),
             "spec_draft_model": self._draft_model.text() or None,
         }
+
+    def restore_params(self, d: dict):
+        super().restore_params(d)
+        if "spec_type" in d: self._spec_type.setCurrentText(d["spec_type"])
+        if "spec_draft_n_max" in d: self._draft_n_max.setValue(d["spec_draft_n_max"])
+        if "spec_draft_n_min" in d: self._draft_n_min.setValue(d["spec_draft_n_min"])
+        if "spec_draft_p_split" in d: self._draft_p_split.setValue(d["spec_draft_p_split"])
+        if "spec_draft_p_min" in d: self._draft_p_min.setValue(d["spec_draft_p_min"])
+        if "spec_draft_model" in d: self._draft_model.setText(d["spec_draft_model"] or "")
