@@ -21,6 +21,28 @@ def test_初始状态为stopped():
     assert sup.status() == ProcessStatus.STOPPED
 
 
+@pytest.mark.parametrize("pooling", ["none", "mean", "cls", "last", "rank"])
+def test_嵌入服务参数与别名正确传入(pooling):
+    cmd = ProcessSupervisor(EventBus())._build_command({
+        "model_path": "D:/模型目录/embedding gemma.gguf",
+        "alias": "embedding gemma2",
+        "embeddings": True,
+        "pooling": pooling,
+    })
+    assert cmd[cmd.index("-m") + 1] == "D:/模型目录/embedding gemma.gguf"
+    assert cmd[cmd.index("--alias") + 1] == "embedding gemma2"
+    assert cmd.count("--embeddings") == 1
+    assert cmd[cmd.index("--pooling") + 1] == pooling
+
+
+@pytest.mark.parametrize("params", [{}, {"alias": "", "embeddings": False, "pooling": "auto"}])
+def test_嵌入默认参数不影响普通模型命令(params):
+    cmd = ProcessSupervisor(EventBus())._build_command({"model_path": "chat.gguf", **params})
+    assert "--alias" not in cmd
+    assert "--embeddings" not in cmd
+    assert "--pooling" not in cmd
+
+
 def test_start成功emit_starting事件():
     """start 应 emit status_changed: starting（事件在启动子进程前即发送）"""
     bus = EventBus()

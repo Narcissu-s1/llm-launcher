@@ -23,6 +23,9 @@ DEFAULT_CONFIG = {
         # Phase 1
         "port": 8080,            # 监听端口
         "host": "127.0.0.1",     # 监听地址
+        "alias": "",             # API 模型别名（空=使用模型默认名称）
+        "embeddings": False,     # 仅支持嵌入服务
+        "pooling": "auto",       # 池化方式（auto=由模型决定）
         "context_size": 32768,   # 上下文大小 (-c)
         "n_gpu_layers": "auto",  # GPU 层数 (--n-gpu-layers)，auto=由 llama-server 决定
         "load_mode": "auto",   # 模型加载模式（--load-mode），auto=由 llama-server 决定

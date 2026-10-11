@@ -27,9 +27,15 @@ def test_导出导入往返():
     """export 后 import 应完整还原数据"""
     src, src_path = _new_store()
     try:
+        embedding_params = {
+            "alias": "embeddinggemma2", "embeddings": True, "pooling": "mean",
+            "context_size": 2048, "batch_size": 2048, "ubatch_size": 2048,
+        }
         src.save_preset("code", {"temp": 0.2, "top_p": 0.9})
         src.save_preset("chat", {"temp": 0.8})
+        src.save_preset("向量", embedding_params)
         src.save_model_preset("qwen-7b", {"temp": 0.3, "n_gpu_layers": 20})
+        src.save_model_preset("embeddinggemma", embedding_params)
 
         text = export_presets(src)
 
@@ -38,11 +44,15 @@ def test_导出导入往返():
             result = import_presets(dst, text)
             assert "code" in result["presets_added"]
             assert "chat" in result["presets_added"]
+            assert "向量" in result["presets_added"]
             assert "qwen-7b" in result["model_presets_added"]
+            assert "embeddinggemma" in result["model_presets_added"]
 
             assert dst.get_presets() == {"code": {"temp": 0.2, "top_p": 0.9},
-                                          "chat": {"temp": 0.8}}
+                                          "chat": {"temp": 0.8},
+                                          "向量": embedding_params}
             assert dst.get_model_preset("qwen-7b") == {"temp": 0.3, "n_gpu_layers": 20}
+            assert dst.get_model_preset("embeddinggemma") == embedding_params
         finally:
             os.unlink(dst_path)
     finally:

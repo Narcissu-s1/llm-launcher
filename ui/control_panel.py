@@ -44,6 +44,15 @@ class ControlPanel(QWidget):
         self._supervisor = supervisor
         self._build_ui()
         self._restore()
+        self._alias.textChanged.connect(
+            lambda value: self._config.set("server.alias", value.strip())
+        )
+        self._embeddings.toggled.connect(
+            lambda value: self._config.set("server.embeddings", value)
+        )
+        self._pooling.currentTextChanged.connect(
+            lambda value: self._config.set("server.pooling", value)
+        )
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -129,12 +138,26 @@ class ControlPanel(QWidget):
         self._host = QComboBox()
         self._host.addItem("127.0.0.1（仅本机）", "127.0.0.1")
         self._host.addItem("0.0.0.0（局域网）", "0.0.0.0")
+        self._alias = QLineEdit()
+        self._alias.setPlaceholderText("留空使用模型默认名称")
+        self._alias.setToolTip("--alias：设置 API 使用的模型别名，例如 embeddinggemma2")
+        self._embeddings = QCheckBox("嵌入服务模式")
+        self._embeddings.setToolTip("--embeddings：仅用于专用嵌入模型；通过 /v1/embeddings 等接口获取向量")
+        self._pooling = QComboBox()
+        self._pooling.addItems(["auto", "none", "mean", "cls", "last", "rank"])
+        self._pooling.setToolTip(
+            "--pooling：auto 由模型决定；mean 对 token 向量取平均；"
+            "none 返回逐 token 向量，不能用于 /v1/embeddings"
+        )
         form.addRow("端口", self._port)
         form.addRow("上下文长度", self._ctx)
         form.addRow("GPU 层数", self._ngl)
         form.addRow("加载模式 (-lm)", self._load_mode)
         form.addRow("并发数", self._np)
         form.addRow("监听地址", self._host)
+        form.addRow("模型别名", self._alias)
+        form.addRow(self._embeddings)
+        form.addRow("池化方式", self._pooling)
         root.addWidget(basic)
 
         # 高级参数（滚动区）
@@ -286,6 +309,9 @@ class ControlPanel(QWidget):
             "load_mode": self._load_mode.currentText(),
             "parallel": int(self._np.currentText()),
             "host": self._host.currentData(),
+            "alias": self._alias.text().strip(),
+            "embeddings": self._embeddings.isChecked(),
+            "pooling": self._pooling.currentText(),
             "router_mode": self._router_mode.isChecked(),
             "models_dir": self._models_dir.text(),
             "tools": self._tools.isChecked(),
@@ -307,6 +333,9 @@ class ControlPanel(QWidget):
         self._mmproj_path.setText(self._config.get("model.mmproj_path") or "")
         self._server_path.setText(self._config.get("app.llama_dir") or "")
         self._port.setValue(self._config.get("server.port") or 8080)
+        self._alias.setText(self._config.get("server.alias") or "")
+        self._embeddings.setChecked(bool(self._config.get("server.embeddings")))
+        self._pooling.setCurrentText(self._config.get("server.pooling") or "auto")
 
         # 路由模式
         router = bool(self._config.get("app.router_mode"))
@@ -440,6 +469,10 @@ class ControlPanel(QWidget):
 
     def _restore_from_preset(self, preset: dict):
         """将预设回填到 UI 控件"""
+        # 旧预设缺少这些字段时恢复默认，避免残留上一个嵌入模型的设置。
+        self._alias.setText(preset.get("alias", ""))
+        self._embeddings.setChecked(preset.get("embeddings", False))
+        self._pooling.setCurrentText(preset.get("pooling", "auto"))
         if "model_path" in preset:
             self._model_path.setText(preset["model_path"])
         if "port" in preset:

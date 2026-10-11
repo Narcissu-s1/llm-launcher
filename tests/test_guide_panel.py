@@ -39,6 +39,10 @@ def test_内置参数说明覆盖当前可调参数():
         "--mmproj-offload",
         "--no-mmproj-offload",
         "--load-mode",
+        "--alias",
+        "--embedding",
+        "--embeddings",
+        "--pooling",
     ]:
         assert flag in text
 

@@ -116,6 +116,9 @@ def test_新增参数默认值():
     from core.config import DEFAULT_CONFIG
 
     server = DEFAULT_CONFIG["server"]
+    assert server["alias"] == ""
+    assert server["embeddings"] is False
+    assert server["pooling"] == "auto"
 
     # KV Cache
     assert server["cache_type_k"] == "f16"
@@ -164,3 +167,18 @@ def test_新增参数默认值():
     assert server["timeout"] == 3600
     assert server["metrics"] is False
     assert server["slots"] is True
+
+
+def test_旧配置补全嵌入默认且保留已有值(tmp_path):
+    path = tmp_path / "config.yaml"
+    path.write_text("server:\n  port: 9090\n", encoding="utf-8")
+    server = ConfigStore(str(path)).load()["server"]
+    assert (server["alias"], server["embeddings"], server["pooling"]) == ("", False, "auto")
+    assert server["port"] == 9090
+
+    path.write_text(
+        "server:\n  alias: embeddinggemma2\n  embeddings: true\n  pooling: mean\n",
+        encoding="utf-8",
+    )
+    server = ConfigStore(str(path)).load()["server"]
+    assert (server["alias"], server["embeddings"], server["pooling"]) == ("embeddinggemma2", True, "mean")

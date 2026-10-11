@@ -218,6 +218,13 @@ class ProcessSupervisor:
             "-c", str(params.get("context_size", 4096)),
             "-np", str(params.get("parallel", 1)),
         ])
+        if params.get("alias"):
+            cmd.extend(["--alias", params["alias"]])
+        if params.get("embeddings", False):
+            cmd.append("--embeddings")
+        pooling = params.get("pooling", "auto")
+        if pooling not in (None, "", "auto"):
+            cmd.extend(["--pooling", pooling])
         n_gpu_layers = params.get("n_gpu_layers", "auto")
         if n_gpu_layers not in (None, "", "auto"):
             cmd.extend(["--n-gpu-layers", str(n_gpu_layers)])

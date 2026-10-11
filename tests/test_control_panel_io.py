@@ -244,6 +244,115 @@ def test_同步后的高级预设能够回填并生成命令(control):
     assert "--context-shift" in cmd
 
 
+def test_嵌入服务完整示例可回填并生成命令(control):
+    """预设中的基础参数和物理批大小应一起传到启动命令。"""
+    from core.events import EventBus
+    from core.process_manager import ProcessSupervisor
+
+    preset = {
+        "model_path": "D:/models/embedding gemma.gguf",
+        "alias": "embeddinggemma2", "embeddings": True, "pooling": "mean",
+        "context_size": 2048, "batch_size": 2048, "ubatch_size": 2048,
+        "parallel": 1, "host": "127.0.0.1", "port": 8080,
+    }
+    control._restore_from_preset(preset)
+    params = control.collect_params()
+    for key, value in preset.items():
+        if key != "batch_size":
+            assert params[key] == value
+    # 逻辑批 2048 与服务器默认值一致，收集时可以省略。
+    assert control._inf_params._batch.value() == 2048
+    assert params.get("batch_size", 2048) == 2048
+
+    cmd = ProcessSupervisor(EventBus())._build_command(params)
+    for flag, value in [
+        ("-m", preset["model_path"]), ("--alias", "embeddinggemma2"),
+        ("--pooling", "mean"), ("-c", "2048"), ("-ub", "2048"),
+        ("-np", "1"), ("--host", "127.0.0.1"), ("--port", "8080"),
+    ]:
+        assert cmd[cmd.index(flag) + 1] == value
+    assert "--embeddings" in cmd
+    assert "-b" not in cmd
+
+
+def test_嵌入控件修改后保存并在新面板恢复(control, config_path):
+    """直接修改控件后，从磁盘重建配置和面板仍应保留设置。"""
+    from core.config import ConfigStore
+    from ui.control_panel import ControlPanel
+
+    control._alias.setText("  embedding gemma  ")
+    control._embeddings.setChecked(True)
+    control._pooling.setCurrentText("mean")
+
+    config = ConfigStore(config_path)
+    assert config.get("server.alias") == "embedding gemma"
+    assert config.get("server.embeddings") is True
+    assert config.get("server.pooling") == "mean"
+    restored = ControlPanel(config, MagicMock())
+    params = restored.collect_params()
+    assert params["alias"] == "embedding gemma"
+    assert params["embeddings"] is True
+    assert params["pooling"] == "mean"
+
+
+def test_旧聊天预设清除残留嵌入设置(control, config_path):
+    """缺少新字段的旧预设应清除嵌入模式，并保存清理结果。"""
+    from core.config import ConfigStore
+    from core.events import EventBus
+    from core.process_manager import ProcessSupervisor
+
+    control._restore_from_preset({
+        "alias": "embeddinggemma2", "embeddings": True, "pooling": "mean",
+    })
+    control._restore_from_preset({"model_path": "chat.gguf", "temp": 0.7})
+    params = control.collect_params()
+    assert params["alias"] == ""
+    assert params["embeddings"] is False
+    assert params["pooling"] == "auto"
+    cmd = ProcessSupervisor(EventBus())._build_command(params)
+    assert "--alias" not in cmd
+    assert "--embeddings" not in cmd
+    assert "--pooling" not in cmd
+    config = ConfigStore(config_path)
+    assert config.get("server.alias") == ""
+    assert config.get("server.embeddings") is False
+    assert config.get("server.pooling") == "auto"
+
+
+@pytest.mark.parametrize("model_preset", [False, True], ids=["通用", "模型专属"])
+def test_嵌入预设保存导出导入后可以回填(control, tmp_path, model_preset):
+    """通用和模型专属预设都应经过真实保存路径保留嵌入字段。"""
+    from core.config import ConfigStore
+    from core.config_preset import export_presets, import_presets
+    from ui.control_panel import ControlPanel
+
+    model_path = "D:/models/embeddinggemma.gguf"
+    expected = {"alias": "embeddinggemma2", "embeddings": True, "pooling": "mean"}
+    control._restore_from_preset({"model_path": model_path, **expected})
+    if model_preset:
+        with patch("ui.control_panel.QMessageBox.information"):
+            control.save_model_preset_for_path(model_path)
+    else:
+        with patch("ui.control_panel.QInputDialog.getText", return_value=("向量", True)):
+            control._save_preset()
+
+    config = ConfigStore(str(tmp_path / "imported.yaml"))
+    import_presets(config, export_presets(control._config))
+    preset = (config.get_model_preset("embeddinggemma") if model_preset
+              else config.get_presets()["向量"])
+    for key, value in expected.items():
+        assert preset[key] == value
+    if model_preset:
+        assert "model_path" not in preset
+    else:
+        assert preset["model_path"] == model_path
+    restored = ControlPanel(config, MagicMock())
+    restored._restore_from_preset(preset)
+    params = restored.collect_params()
+    for key, value in expected.items():
+        assert params[key] == value
+
+
 def test_cpu_moe层数范围按模型层数限制(control):
     """CPU MoE 层数范围应按 GGUF block_count 限制为 0..模型层数"""
     from core.model_library import ModelInfo
